@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Next.js / panel build output
+.next/
+out/
+
+# AWS SAM build artifacts
+.aws-sam/
+
+# Environment files (never commit real secrets)
+*.env
+.env
+.env.local
+.env*.local
+
+# Amplify generated config
+aws-exports.js
+
+# SAM config (real one — keep samconfig.toml.example tracked)
+samconfig.toml
+
+# Zips / build bundles
+*.zip
+
+# macOS
+.DS_Store
+
+# Real seed data (keep vendedores.example.json tracked)
+vendedores.json
+
+# IMPORTANT: keep all *.example / *.example.* files tracked.

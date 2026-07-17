@@ -1,0 +1,264 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  carcompra - WhatsApp lead capture + round-robin assignment + read-only panel API.
+  Two HTTP APIs (public webhook, Cognito-protected panel), 3 DynamoDB tables,
+  Cognito user pool for the panel, and two Lambda functions.
+
+# ---------------------------------------------------------------------------
+# Globals: applied to every AWS::Serverless::Function in this template.
+# ---------------------------------------------------------------------------
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 15
+    MemorySize: 256
+    Architectures:
+      - arm64
+
+Resources:
+
+  # -------------------------------------------------------------------------
+  # DynamoDB tables (on-demand). Explicit TableName so names are stable and
+  # match the values hardcoded in the Lambda env vars / GLOBAL CONVENTIONS.
+  # -------------------------------------------------------------------------
+  LeadsTable:
+    Type: AWS::DynamoDB::Table
+    # Retain the leads table so a stack delete never destroys captured leads.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: carcompra-leads
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: leadId
+          AttributeType: S
+        - AttributeName: vendedorId
+          AttributeType: S
+        - AttributeName: estado
+          AttributeType: S
+        - AttributeName: creadoEn
+          AttributeType: S
+      KeySchema:
+        - AttributeName: leadId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: gsi-vendedor
+          KeySchema:
+            - AttributeName: vendedorId
+              KeyType: HASH
+            - AttributeName: creadoEn
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: gsi-estado
+          KeySchema:
+            - AttributeName: estado
+              KeyType: HASH
+            - AttributeName: creadoEn
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  VendedoresTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: carcompra-vendedores
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: vendedorId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: vendedorId
+          KeyType: HASH
+
+  ConfigTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: carcompra-config
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+
+  # -------------------------------------------------------------------------
+  # Cognito: user pool for the internal panel. Admin-create-only (no public
+  # sign-up), email used as username / alias.
+  # -------------------------------------------------------------------------
+  PanelUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: carcompra-panel
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireUppercase: true
+          RequireSymbols: false
+
+  PanelUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: carcompra-panel-client
+      UserPoolId: !Ref PanelUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  # -------------------------------------------------------------------------
+  # HTTP API #1: public webhook (Meta / WhatsApp calls this). No auth.
+  # -------------------------------------------------------------------------
+  WebhookApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+
+  # -------------------------------------------------------------------------
+  # HTTP API #2: panel read API. Default authorizer = Cognito JWT.
+  # NOTE: CORS AllowOrigins is '*' for convenience during development.
+  #       Lock this down to the panel's real domain before going to prod.
+  # -------------------------------------------------------------------------
+  PanelApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+        AllowMethods:
+          - GET
+      Auth:
+        DefaultAuthorizer: CognitoJwt
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              audience:
+                - !Ref PanelUserPoolClient
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${PanelUserPool}
+
+  # -------------------------------------------------------------------------
+  # WebhookFunction: handles Meta verification (GET) and inbound events (POST).
+  # -------------------------------------------------------------------------
+  WebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/webhook
+      Handler: index.handler
+      Environment:
+        Variables:
+          LEADS_TABLE: carcompra-leads
+          VENDEDORES_TABLE: carcompra-vendedores
+          CONFIG_TABLE: carcompra-config
+          SECRET_ID: carcompra/whatsapp
+          GRAPH_API_VERSION: v21.0
+          TEMPLATE_NAME: nuevo_lead
+          TEMPLATE_LANG: es
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: carcompra-leads
+        - DynamoDBCrudPolicy:
+            TableName: carcompra-vendedores
+        - DynamoDBCrudPolicy:
+            TableName: carcompra-config
+        # Read the WhatsApp credentials secret. The secret itself is created
+        # out-of-band (see scripts) and intentionally NOT managed here, so a
+        # stack update can never clobber the live token. Wildcard suffix
+        # matches the 6-char random suffix Secrets Manager appends.
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: arn:aws:secretsmanager:*:*:secret:carcompra/whatsapp-*
+      Events:
+        WebhookVerify:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WebhookApi
+            Method: GET
+            Path: /webhook
+        WebhookReceive:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WebhookApi
+            Method: POST
+            Path: /webhook
+
+  # -------------------------------------------------------------------------
+  # ReadApiFunction: read-only panel endpoints, protected by Cognito JWT.
+  # -------------------------------------------------------------------------
+  ReadApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/api
+      Handler: index.handler
+      Environment:
+        Variables:
+          LEADS_TABLE: carcompra-leads
+          VENDEDORES_TABLE: carcompra-vendedores
+          CONFIG_TABLE: carcompra-config
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: carcompra-leads
+        - DynamoDBReadPolicy:
+            TableName: carcompra-vendedores
+        - DynamoDBReadPolicy:
+            TableName: carcompra-config
+      Events:
+        GetLeads:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PanelApi
+            Method: GET
+            Path: /leads
+        GetVendedores:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PanelApi
+            Method: GET
+            Path: /vendedores
+        GetStats:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PanelApi
+            Method: GET
+            Path: /stats
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+Outputs:
+  WebhookUrl:
+    Description: Public webhook URL to register in the Meta / WhatsApp app config.
+    Value: !Sub https://${WebhookApi}.execute-api.${AWS::Region}.amazonaws.com/webhook
+
+  ReadApiUrl:
+    Description: Base URL of the Cognito-protected panel API.
+    Value: !Sub https://${PanelApi}.execute-api.${AWS::Region}.amazonaws.com
+
+  UserPoolId:
+    Description: Cognito User Pool id for the panel.
+    Value: !Ref PanelUserPool
+
+  UserPoolClientId:
+    Description: Cognito User Pool Client id for the panel (no secret).
+    Value: !Ref PanelUserPoolClient
+
+  Region:
+    Description: AWS region the stack is deployed in.
+    Value: !Ref AWS::Region

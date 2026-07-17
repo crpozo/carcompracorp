@@ -1,0 +1,19 @@
+[
+  {
+    "vendedorId": "ana-torres",
+    "nombre": "Ana Torres",
+    "telefono": "593991112233",
+    "activo": true,
+    "orden": 1
+  },
+  {
+    "nombre": "Bruno Salazar",
+    "telefono": "593992223344",
+    "activo": true,
+    "orden": 2
+  },
+  {
+    "nombre": "Carla Mendez",
+    "telefono": "593993334455"
+  }
+]

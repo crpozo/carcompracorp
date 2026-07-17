@@ -1,0 +1,11 @@
+{
+  "name": "carcompra-api",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Read-only panel API Lambda for CarCompra leads dashboard",
+  "main": "index.mjs",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.658.0",
+    "@aws-sdk/lib-dynamodb": "^3.658.0"
+  }
+}

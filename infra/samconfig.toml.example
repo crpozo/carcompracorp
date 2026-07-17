@@ -1,0 +1,41 @@
+# ---------------------------------------------------------------------------
+# Example SAM CLI configuration for the carcompra stack.
+#
+# Copy this file to `samconfig.toml` (same directory) and adjust as needed.
+# This is roughly what `sam deploy --guided` writes out on first run.
+#
+#   cp samconfig.toml.example samconfig.toml
+#   sam build
+#   sam deploy            # uses the [default.deploy.parameters] below
+#
+# `samconfig.toml` itself is environment-specific and is typically gitignored;
+# only this .example is committed.
+# ---------------------------------------------------------------------------
+
+version = 0.1
+
+[default]
+
+[default.global.parameters]
+# Applied to every SAM command unless overridden per-command.
+stack_name = "carcompra"
+
+[default.build.parameters]
+# arm64 functions build natively on Apple Silicon; enable --use-container
+# if you need a Linux/glibc build environment instead.
+# use_container = true
+
+[default.deploy.parameters]
+stack_name = "carcompra"
+region = "us-east-1"
+# Let SAM create/reuse a managed S3 bucket for the packaged artifacts.
+resolve_s3 = true
+# The stack creates IAM roles (Lambda execution roles, etc.).
+capabilities = "CAPABILITY_IAM"
+# Fail fast instead of leaving a ROLLBACK_COMPLETE stack on first-deploy errors.
+disable_rollback = false
+confirm_changeset = true
+
+[default.validate.parameters]
+# `sam validate --lint` runs the cfn-lint ruleset in addition to SAM checks.
+lint = true
