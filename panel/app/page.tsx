@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { signOut } from 'aws-amplify/auth';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { signOut, fetchUserAttributes } from 'aws-amplify/auth';
 import {
   getLeads,
   getStats,
@@ -10,97 +10,208 @@ import {
   type Stats as StatsType,
   type Vendedor,
 } from '../lib/api';
-import Stats from '../components/Stats';
-import VendorFilter from '../components/VendorFilter';
+import Sidebar from '../components/Sidebar';
+import Topbar from '../components/Topbar';
 import LeadsTable from '../components/LeadsTable';
+import Pagination from '../components/Pagination';
+import VendedoresTable from '../components/VendedoresTable';
+
+type View = 'leads' | 'vendedores';
+const PAGE_SIZE = 8;
 
 export default function DashboardPage() {
+  const [view, setView] = useState<View>('leads');
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [stats, setStats] = useState<StatsType | null>(null);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [selectedVendedor, setSelectedVendedor] = useState<string>('');
-  const [loadingLeads, setLoadingLeads] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [query, setQuery] = useState('');
+  const [vendorFilter, setVendorFilter] = useState('');
+  const [page, setPage] = useState(1);
 
-  // Load the reference data (vendedores + stats) plus the initial, unfiltered
-  // leads once on mount.
+  // Read everything once; filtering / search / pagination happen client-side.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        setError(null);
-        const [vend, st, initialLeads] = await Promise.all([
+        const [v, s, l] = await Promise.all([
           getVendedores(),
           getStats(),
           getLeads(),
         ]);
         if (cancelled) return;
-        setVendedores(vend);
-        setStats(st);
-        setLeads(initialLeads);
+        setVendedores(v);
+        setStats(s);
+        setLeads(l);
       } catch (e) {
-        if (cancelled) return;
-        setError(e instanceof Error ? e.message : 'Error al cargar el panel.');
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : 'Error al cargar el panel.');
       } finally {
-        if (!cancelled) setLoadingLeads(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    fetchUserAttributes()
+      .then((a) => {
+        if (!cancelled) setEmail(a.email ?? '');
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Refetch leads whenever the vendedor filter changes.
-  const applyFilter = useCallback(async (vendedorId: string) => {
-    setSelectedVendedor(vendedorId);
-    setLoadingLeads(true);
-    setError(null);
-    try {
-      const rows = await getLeads(vendedorId || undefined);
-      setLeads(rows);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al cargar los leads.');
-    } finally {
-      setLoadingLeads(false);
-    }
-  }, []);
+  const nameFor = useCallback(
+    (id?: string) =>
+      id ? vendedores.find((v) => v.vendedorId === id)?.nombre ?? id : '',
+    [vendedores]
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return leads.filter((l) => {
+      if (vendorFilter && l.vendedorId !== vendorFilter) return false;
+      if (!q) return true;
+      return [l.nombre, l.telefono, l.anuncioOrigen, l.mensaje, nameFor(l.vendedorId)]
+        .some((f) => (f ?? '').toLowerCase().includes(q));
+    });
+  }, [leads, query, vendorFilter, nameFor]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageClamped = Math.min(page, totalPages);
+  const paged = filtered.slice(
+    (pageClamped - 1) * PAGE_SIZE,
+    pageClamped * PAGE_SIZE
+  );
+
+  const onQuery = (v: string) => {
+    setQuery(v);
+    setPage(1);
+  };
+  const onVendor = (v: string) => {
+    setVendorFilter(v);
+    setPage(1);
+  };
+  const switchView = (v: View) => {
+    setView(v);
+    setPage(1);
+  };
+
+  const exportCSV = useCallback(() => {
+    const header = [
+      'Recibido', 'Nombre', 'Telefono', 'Anuncio', 'Mensaje', 'Vendedor', 'Estado',
+    ];
+    const rows = filtered.map((l) => [
+      l.creadoEn, l.nombre, l.telefono, l.anuncioOrigen ?? '', l.mensaje ?? '',
+      nameFor(l.vendedorId), l.estado,
+    ]);
+    const esc = (s: unknown) => `"${String(s ?? '').replace(/"/g, '""')}"`;
+    const csv = [header, ...rows].map((r) => r.map(esc).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'leads-carcompra.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filtered, nameFor]);
 
   return (
-    <main className="page">
-      <div className="topbar">
-        <div>
-          <h1>CarCompra · Panel de Leads</h1>
-          <div className="who">Vista de supervisión (solo lectura)</div>
-        </div>
-        <button className="btn" onClick={() => signOut()}>
-          Cerrar sesión
-        </button>
-      </div>
-
-      {error && <div className="msg error">{error}</div>}
-
-      <section className="section">
-        <h2>Resumen</h2>
-        <Stats stats={stats} vendedores={vendedores} />
-      </section>
-
-      <section className="section">
-        <h2>Leads</h2>
-        <VendorFilter
-          vendedores={vendedores}
-          value={selectedVendedor}
-          onChange={applyFilter}
-          disabled={loadingLeads}
+    <div className="app">
+      <Sidebar view={view} onView={switchView} />
+      <div className="main">
+        <Topbar
+          query={query}
+          onQuery={onQuery}
+          email={email}
+          onSignOut={() => signOut()}
         />
-        <div style={{ height: 14 }} />
-        {loadingLeads ? (
-          <div className="table-wrap">
-            <div className="msg">Cargando leads…</div>
+        <div className="content">
+          <div className="page-head">
+            <div>
+              <div className="crumb">Contactos</div>
+              <h1>{view === 'leads' ? 'Mis Leads' : 'Vendedores'}</h1>
+            </div>
+            <span className="count-pill">
+              {view === 'leads'
+                ? `${filtered.length} ${filtered.length === 1 ? 'lead' : 'leads'}`
+                : `${vendedores.length} vendedores`}
+            </span>
+            <div className="head-actions">
+              {view === 'leads' && (
+                <button
+                  className="btn dark"
+                  onClick={exportCSV}
+                  disabled={filtered.length === 0}
+                >
+                  Exportar CSV
+                </button>
+              )}
+            </div>
           </div>
-        ) : (
-          <LeadsTable leads={leads} vendedores={vendedores} />
-        )}
-      </section>
-    </main>
+
+          {error && <div className="msg error">{error}</div>}
+
+          <div className="card">
+            <div className="tabs">
+              <button
+                className={view === 'leads' ? 'active' : ''}
+                onClick={() => switchView('leads')}
+              >
+                Leads
+              </button>
+              <button
+                className={view === 'vendedores' ? 'active' : ''}
+                onClick={() => switchView('vendedores')}
+              >
+                Vendedores
+              </button>
+            </div>
+
+            {view === 'leads' ? (
+              <>
+                <div className="toolbar">
+                  <select
+                    className="filter-pill"
+                    value={vendorFilter}
+                    onChange={(e) => onVendor(e.target.value)}
+                  >
+                    <option value="">Todos los vendedores</option>
+                    {vendedores.map((v) => (
+                      <option key={v.vendedorId} value={v.vendedorId}>
+                        {v.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="spacer" />
+                  <span className="result-note">
+                    {loading
+                      ? 'Cargando…'
+                      : `${filtered.length} resultado${filtered.length === 1 ? '' : 's'}`}
+                  </span>
+                </div>
+                {loading ? (
+                  <div className="msg">Cargando leads…</div>
+                ) : (
+                  <>
+                    <LeadsTable leads={paged} vendedores={vendedores} />
+                    <Pagination
+                      page={pageClamped}
+                      totalPages={totalPages}
+                      onPage={setPage}
+                    />
+                  </>
+                )}
+              </>
+            ) : loading ? (
+              <div className="msg">Cargando…</div>
+            ) : (
+              <VendedoresTable vendedores={vendedores} stats={stats} />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

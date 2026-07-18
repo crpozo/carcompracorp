@@ -1,13 +1,35 @@
 'use client';
 
 import { Amplify } from 'aws-amplify';
+import { I18n } from 'aws-amplify/utils';
 import { Authenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 
+// Spanish labels for the Authenticator UI.
+I18n.putVocabularies({
+  es: {
+    'Sign in': 'Iniciar sesión',
+    'Signing in': 'Ingresando…',
+    'Sign In': 'Iniciar sesión',
+    'Forgot your password?': '¿Olvidaste tu contraseña?',
+    'Reset Password': 'Restablecer contraseña',
+    'Send code': 'Enviar código',
+    'Back to Sign In': 'Volver a iniciar sesión',
+    'Change Password': 'Cambiar contraseña',
+    'Changing': 'Cambiando…',
+    'New password': 'Nueva contraseña',
+    'Confirm Password': 'Confirmar contraseña',
+    'Please confirm your Password': 'Confirma tu contraseña',
+    'Submit': 'Continuar',
+    'Code': 'Código',
+    'Confirm': 'Confirmar',
+  },
+});
+I18n.setLanguage('es');
+
 // Configure Amplify Auth (Cognito) once, at module load, from the public env
-// vars. These are inlined into the client bundle at build time. Only accounts
-// created by an administrator can sign in — self sign-up is disabled below via
-// <Authenticator hideSignUp>.
+// vars. Only accounts created by an administrator can sign in — self sign-up is
+// disabled via <Authenticator hideSignUp>.
 Amplify.configure(
   {
     Auth: {
@@ -20,13 +42,53 @@ Amplify.configure(
   { ssr: true }
 );
 
+// Split-screen login styled after the reference: brand + welcome copy on the
+// left form panel; the decorative illustration lives in the right panel (CSS).
+const components = {
+  SignIn: {
+    Header() {
+      return (
+        <div className="login-head">
+          <div className="login-brand">
+            <span className="login-logo">🚗</span> CarCompra
+          </div>
+          <h2>Bienvenido de nuevo</h2>
+          <p>Ingresa tu correo y contraseña para ver tu panel de leads.</p>
+        </div>
+      );
+    },
+    Footer() {
+      return (
+        <p className="login-foot">
+          Panel de supervisión de CarCompra. Acceso solo para personal
+          autorizado — las cuentas las crea un administrador.
+        </p>
+      );
+    },
+  },
+};
+
+const formFields = {
+  signIn: {
+    username: {
+      label: 'Correo electrónico',
+      placeholder: 'tucorreo@empresa.com',
+      isRequired: true,
+    },
+    password: {
+      label: 'Contraseña',
+      placeholder: 'Tu contraseña',
+    },
+  },
+};
+
 export default function Providers({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <Authenticator hideSignUp>
+    <Authenticator hideSignUp components={components} formFields={formFields}>
       {() => <>{children}</>}
     </Authenticator>
   );
