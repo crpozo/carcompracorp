@@ -1,0 +1,14 @@
+{
+  "name": "carcompracorp-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scripts operativos (seed de vendedores, etc.) para CarCompraCorp. Usa las credenciales del AWS CLI del entorno.",
+  "scripts": {
+    "seed": "node scripts/seed-vendedores.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.658.0",
+    "@aws-sdk/lib-dynamodb": "^3.658.0"
+  }
+}
