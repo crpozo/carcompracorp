@@ -77,7 +77,6 @@ const components = {
     Header() {
       return (
         <div className="login-head">
-          <span className="login-logo">🚗</span>
           <h2>Bienvenido de nuevo</h2>
           <p>Ingresa tus credenciales para acceder a tu panel</p>
         </div>
