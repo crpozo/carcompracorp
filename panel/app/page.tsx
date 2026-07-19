@@ -15,11 +15,21 @@ import Topbar from '../components/Topbar';
 import LeadsTable from '../components/LeadsTable';
 import Pagination from '../components/Pagination';
 import VendedoresTable from '../components/VendedoresTable';
+import Providers from './providers';
 
 type View = 'leads' | 'vendedores';
 const PAGE_SIZE = 8;
 
+// El wrapper de auth vive aquí (no en el layout) para que /privacidad sea pública.
 export default function DashboardPage() {
+  return (
+    <Providers>
+      <Dashboard />
+    </Providers>
+  );
+}
+
+function Dashboard() {
   const [view, setView] = useState<View>('leads');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);

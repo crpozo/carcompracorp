@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import Providers from './providers';
 
 export const metadata: Metadata = {
   title: 'CarCompra · Panel de Leads',
   description: 'Panel de supervisión (solo lectura) de leads de CarCompra.',
 };
 
+// El Authenticator (Cognito) se aplica por página en app/page.tsx — así las
+// páginas públicas como /privacidad no exigen login.
 export default function RootLayout({
   children,
 }: {
@@ -14,9 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body>
-        <Providers>{children}</Providers>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
