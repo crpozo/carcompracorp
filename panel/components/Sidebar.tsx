@@ -1,6 +1,13 @@
 'use client';
 
-type View = 'leads' | 'vendedores';
+export type View = 'leads' | 'vendedores' | 'reportes' | 'integracion';
+
+const ITEMS: { key: View; icon: string; label: string }[] = [
+  { key: 'leads', icon: '📇', label: 'Leads' },
+  { key: 'vendedores', icon: '👥', label: 'Vendedores' },
+  { key: 'reportes', icon: '📊', label: 'Reportes' },
+  { key: 'integracion', icon: '🔗', label: 'Integración' },
+];
 
 export default function Sidebar({
   view,
@@ -15,24 +22,15 @@ export default function Sidebar({
         <span className="logo">🚗</span> CarCompra
       </div>
       <nav className="nav">
-        <button
-          className={view === 'leads' ? 'active' : ''}
-          onClick={() => onView('leads')}
-        >
-          <span className="ic">📇</span> Leads
-        </button>
-        <button
-          className={view === 'vendedores' ? 'active' : ''}
-          onClick={() => onView('vendedores')}
-        >
-          <span className="ic">👥</span> Vendedores
-        </button>
-        <button className="muted" type="button" disabled>
-          <span className="ic">📊</span> Reportes <span className="soon">pronto</span>
-        </button>
-        <button className="muted" type="button" disabled>
-          <span className="ic">🔗</span> Integración <span className="soon">pronto</span>
-        </button>
+        {ITEMS.map((it) => (
+          <button
+            key={it.key}
+            className={view === it.key ? 'active' : ''}
+            onClick={() => onView(it.key)}
+          >
+            <span className="ic">{it.icon}</span> {it.label}
+          </button>
+        ))}
       </nav>
       <div className="side-foot">
         <button className="muted" type="button" disabled>

@@ -10,15 +10,23 @@ import {
   type Stats as StatsType,
   type Vendedor,
 } from '../lib/api';
-import Sidebar from '../components/Sidebar';
+import Sidebar, { type View } from '../components/Sidebar';
 import Topbar from '../components/Topbar';
 import LeadsTable from '../components/LeadsTable';
 import Pagination from '../components/Pagination';
 import VendedoresTable from '../components/VendedoresTable';
+import Reportes from '../components/Reportes';
+import Integracion from '../components/Integracion';
 import Providers, { EMAIL_KEY, REMEMBER_KEY } from './providers';
 
-type View = 'leads' | 'vendedores';
 const PAGE_SIZE = 8;
+
+const VIEW_META: Record<View, { crumb: string; title: string }> = {
+  leads: { crumb: 'Contactos', title: 'Mis Leads' },
+  vendedores: { crumb: 'Contactos', title: 'Vendedores' },
+  reportes: { crumb: 'Análisis', title: 'Reportes' },
+  integracion: { crumb: 'Configuración', title: 'Integración' },
+};
 
 // El wrapper de auth vive aquí (no en el layout) para que /privacidad sea pública.
 export default function DashboardPage() {
@@ -150,14 +158,20 @@ function Dashboard() {
         <div className="content">
           <div className="page-head">
             <div>
-              <div className="crumb">Contactos</div>
-              <h1>{view === 'leads' ? 'Mis Leads' : 'Vendedores'}</h1>
+              <div className="crumb">{VIEW_META[view].crumb}</div>
+              <h1>{VIEW_META[view].title}</h1>
             </div>
-            <span className="count-pill">
-              {view === 'leads'
-                ? `${filtered.length} ${filtered.length === 1 ? 'lead' : 'leads'}`
-                : `${vendedores.length} vendedores`}
-            </span>
+            {view !== 'integracion' && (
+              <span className="count-pill">
+                {view === 'vendedores'
+                  ? `${vendedores.length} vendedores`
+                  : `${(view === 'leads' ? filtered : leads).length} ${
+                      (view === 'leads' ? filtered : leads).length === 1
+                        ? 'lead'
+                        : 'leads'
+                    }`}
+              </span>
+            )}
             <div className="head-actions">
               {view === 'leads' && (
                 <button
@@ -174,22 +188,32 @@ function Dashboard() {
           {error && <div className="msg error">{error}</div>}
 
           <div className="card">
-            <div className="tabs">
-              <button
-                className={view === 'leads' ? 'active' : ''}
-                onClick={() => switchView('leads')}
-              >
-                Leads
-              </button>
-              <button
-                className={view === 'vendedores' ? 'active' : ''}
-                onClick={() => switchView('vendedores')}
-              >
-                Vendedores
-              </button>
-            </div>
+            {(view === 'leads' || view === 'vendedores') && (
+              <div className="tabs">
+                <button
+                  className={view === 'leads' ? 'active' : ''}
+                  onClick={() => switchView('leads')}
+                >
+                  Leads
+                </button>
+                <button
+                  className={view === 'vendedores' ? 'active' : ''}
+                  onClick={() => switchView('vendedores')}
+                >
+                  Vendedores
+                </button>
+              </div>
+            )}
 
-            {view === 'leads' ? (
+            {view === 'reportes' ? (
+              loading ? (
+                <div className="msg">Cargando…</div>
+              ) : (
+                <Reportes leads={leads} vendedores={vendedores} />
+              )
+            ) : view === 'integracion' ? (
+              <Integracion />
+            ) : view === 'leads' ? (
               <>
                 <div className="toolbar">
                   <select
