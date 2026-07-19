@@ -32,14 +32,6 @@ export default function Sidebar({
           </button>
         ))}
       </nav>
-      <div className="side-foot">
-        <button className="muted" type="button" disabled>
-          <span className="ic">⚙️</span> Ajustes
-        </button>
-        <button className="muted" type="button" disabled>
-          <span className="ic">❔</span> Ayuda
-        </button>
-      </div>
     </aside>
   );
 }
