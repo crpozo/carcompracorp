@@ -2,7 +2,7 @@
 
 import { Amplify } from 'aws-amplify';
 import { I18n } from 'aws-amplify/utils';
-import { Authenticator } from '@aws-amplify/ui-react';
+import { Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 
 // Spanish labels for the Authenticator UI.
@@ -42,27 +42,37 @@ Amplify.configure(
   { ssr: true }
 );
 
-// Split-screen login styled after the reference: brand + welcome copy on the
-// left form panel; the decorative illustration lives in the right panel (CSS).
+// Login de tarjeta centrada (referencia "Welcome back"): logo arriba,
+// título y subtítulo centrados; el fondo azul difuminado vive en el CSS.
 const components = {
   SignIn: {
     Header() {
       return (
         <div className="login-head">
-          <div className="login-brand">
-            <span className="login-logo">🚗</span> CarCompra
-          </div>
+          <span className="login-logo">🚗</span>
           <h2>Bienvenido de nuevo</h2>
-          <p>Ingresa tu correo y contraseña para ver tu panel de leads.</p>
+          <p>Ingresa tus credenciales para acceder a tu panel</p>
         </div>
       );
     },
     Footer() {
+      // El footer custom reemplaza al de Amplify, así que re-exponemos aquí
+      // el flujo de "olvidé mi contraseña" (código por correo vía Cognito).
+      const { toForgotPassword } = useAuthenticator();
       return (
-        <p className="login-foot">
-          Panel de supervisión de CarCompra. Acceso solo para personal
-          autorizado — las cuentas las crea un administrador.
-        </p>
+        <div>
+          <button
+            type="button"
+            className="login-forgot"
+            onClick={toForgotPassword}
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
+          <p className="login-foot">
+            Panel de supervisión de CarCompra. Acceso solo para personal
+            autorizado — las cuentas las crea un administrador.
+          </p>
+        </div>
       );
     },
   },
