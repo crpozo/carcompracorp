@@ -29,12 +29,16 @@ body {
   display: grid;
   grid-template-columns: minmax(380px, 1fr) 1.05fr;
   background: var(--card);
+  /* Borderless, shadowless form card (clean like the reference) */
+  --amplify-components-authenticator-router-border-width: 0;
+  --amplify-components-authenticator-router-box-shadow: none;
+  --amplify-components-authenticator-router-background-color: transparent;
 }
 [data-amplify-authenticator] [data-amplify-container] {
   width: 100%; max-width: 404px; place-self: center; padding: 40px 28px;
 }
 [data-amplify-authenticator] [data-amplify-router] {
-  border: none; box-shadow: none; background: transparent;
+  border: 0 !important; box-shadow: none !important; background: transparent !important;
 }
 [data-amplify-authenticator]::after {
   content: ""; grid-column: 2; min-height: 100vh;
