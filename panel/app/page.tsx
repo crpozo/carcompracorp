@@ -15,7 +15,7 @@ import Topbar from '../components/Topbar';
 import LeadsTable from '../components/LeadsTable';
 import Pagination from '../components/Pagination';
 import VendedoresTable from '../components/VendedoresTable';
-import Providers from './providers';
+import Providers, { EMAIL_KEY, REMEMBER_KEY } from './providers';
 
 type View = 'leads' | 'vendedores';
 const PAGE_SIZE = 8;
@@ -64,7 +64,17 @@ function Dashboard() {
     })();
     fetchUserAttributes()
       .then((a) => {
-        if (!cancelled) setEmail(a.email ?? '');
+        if (cancelled) return;
+        setEmail(a.email ?? '');
+        // "Recordar mi correo": se guarda tras un login exitoso para
+        // precargarlo la próxima vez (nunca se guarda la contraseña).
+        try {
+          if (a.email && window.localStorage.getItem(REMEMBER_KEY) !== '0') {
+            window.localStorage.setItem(EMAIL_KEY, a.email);
+          }
+        } catch {
+          /* almacenamiento no disponible: ignorar */
+        }
       })
       .catch(() => {});
     return () => {

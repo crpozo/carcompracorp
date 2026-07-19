@@ -1,9 +1,15 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Amplify } from 'aws-amplify';
 import { I18n } from 'aws-amplify/utils';
 import { Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
+
+// Claves de almacenamiento local para "recordar mi correo". Solo se guarda el
+// correo (nunca la contraseña — eso es del gestor de contraseñas del navegador).
+export const REMEMBER_KEY = 'carcompra.rememberEmail';
+export const EMAIL_KEY = 'carcompra.savedEmail';
 
 // Spanish labels for the Authenticator UI.
 I18n.putVocabularies({
@@ -42,6 +48,28 @@ Amplify.configure(
   { ssr: true }
 );
 
+function RememberEmailToggle() {
+  const [remember, setRemember] = useState(true);
+  useEffect(() => {
+    setRemember(window.localStorage.getItem(REMEMBER_KEY) !== '0');
+  }, []);
+  const onChange = (checked: boolean) => {
+    setRemember(checked);
+    window.localStorage.setItem(REMEMBER_KEY, checked ? '1' : '0');
+    if (!checked) window.localStorage.removeItem(EMAIL_KEY);
+  };
+  return (
+    <label className="login-remember">
+      <input
+        type="checkbox"
+        checked={remember}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      Recordar mi correo en este dispositivo
+    </label>
+  );
+}
+
 // Login de tarjeta centrada (referencia "Welcome back"): logo arriba,
 // título y subtítulo centrados; el fondo azul difuminado vive en el CSS.
 const components = {
@@ -61,6 +89,7 @@ const components = {
       const { toForgotPassword } = useAuthenticator();
       return (
         <div>
+          <RememberEmailToggle />
           <button
             type="button"
             className="login-forgot"
@@ -78,7 +107,7 @@ const components = {
   },
 };
 
-const formFields = {
+const baseFormFields = {
   signIn: {
     username: {
       label: 'Correo electrónico',
@@ -97,6 +126,28 @@ export default function Providers({
 }: {
   children: React.ReactNode;
 }) {
+  // Se resuelve en el cliente para poder precargar el correo guardado antes de
+  // montar el formulario (defaultValue no se puede cambiar después del mount).
+  const [formFields, setFormFields] = useState<Record<string, unknown> | null>(
+    null
+  );
+  useEffect(() => {
+    const saved = window.localStorage.getItem(EMAIL_KEY);
+    if (saved) {
+      setFormFields({
+        ...baseFormFields,
+        signIn: {
+          ...baseFormFields.signIn,
+          username: { ...baseFormFields.signIn.username, defaultValue: saved },
+        },
+      });
+    } else {
+      setFormFields(baseFormFields);
+    }
+  }, []);
+
+  if (!formFields) return null;
+
   return (
     <Authenticator hideSignUp components={components} formFields={formFields}>
       {() => <>{children}</>}
