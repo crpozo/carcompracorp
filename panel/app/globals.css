@@ -42,7 +42,8 @@ body {
 }
 [data-amplify-authenticator]::after {
   content: ""; grid-column: 2; min-height: 100vh;
-  background: #9ec4fb url("/login-art.svg") center / cover no-repeat;
+  /* Foto del lote (cars.jpg del cliente); center 62% encuadra los autos. */
+  background: #cfd8e3 url("/login-photo.jpg") center 62% / cover no-repeat;
 }
 .login-head { text-align: left; }
 .login-brand {
