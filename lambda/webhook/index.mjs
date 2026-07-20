@@ -75,7 +75,23 @@ async function handleIncoming(event) {
   // Navegacion segura hasta value.
   const value = body?.entry?.[0]?.changes?.[0]?.value;
 
-  // Si no hay mensajes (p.ej. son statuses de entrega) no hacemos nada.
+  // Statuses de entrega de mensajes salientes: registrar fallos para poder
+  // diagnosticar notificaciones que la API acepta pero nunca llegan.
+  if (value && Array.isArray(value.statuses)) {
+    for (const st of value.statuses) {
+      if (st.status === 'failed' || st.errors) {
+        console.error('Entrega FALLIDA de mensaje saliente', {
+          to: st.recipient_id,
+          status: st.status,
+          errors: JSON.stringify(st.errors || []),
+        });
+      } else {
+        console.log('Status de entrega', { to: st.recipient_id, status: st.status });
+      }
+    }
+  }
+
+  // Si no hay mensajes (p.ej. eran solo statuses) no hay nada mas que hacer.
   if (!value || !Array.isArray(value.messages) || value.messages.length === 0) {
     return { statusCode: 200, body: 'ok' };
   }
