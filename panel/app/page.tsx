@@ -17,6 +17,7 @@ import Pagination from '../components/Pagination';
 import VendedoresTable from '../components/VendedoresTable';
 import Reportes from '../components/Reportes';
 import Integracion from '../components/Integracion';
+import LeadDrawer from '../components/LeadDrawer';
 import Providers, { EMAIL_KEY, REMEMBER_KEY } from './providers';
 
 const PAGE_SIZE = 8;
@@ -48,6 +49,7 @@ function Dashboard() {
   const [query, setQuery] = useState('');
   const [vendorFilter, setVendorFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   // Read everything once; filtering / search / pagination happen client-side.
   useEffect(() => {
@@ -239,7 +241,12 @@ function Dashboard() {
                   <div className="msg">Cargando leads…</div>
                 ) : (
                   <>
-                    <LeadsTable leads={paged} vendedores={vendedores} />
+                    <LeadsTable
+                      leads={paged}
+                      vendedores={vendedores}
+                      onSelect={setSelectedLead}
+                      onVendorFilter={onVendor}
+                    />
                     <Pagination
                       page={pageClamped}
                       totalPages={totalPages}
@@ -256,6 +263,11 @@ function Dashboard() {
           </div>
         </div>
       </div>
+      <LeadDrawer
+        lead={selectedLead}
+        vendedores={vendedores}
+        onClose={() => setSelectedLead(null)}
+      />
     </div>
   );
 }

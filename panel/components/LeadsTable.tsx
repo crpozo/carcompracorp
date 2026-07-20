@@ -19,9 +19,13 @@ function formatFecha(iso: string): string {
 export default function LeadsTable({
   leads,
   vendedores,
+  onSelect,
+  onVendorFilter,
 }: {
   leads: Lead[];
   vendedores: Vendedor[];
+  onSelect: (lead: Lead) => void;
+  onVendorFilter: (vendedorId: string) => void;
 }) {
   const nameFor = (id?: string) =>
     id ? vendedores.find((v) => v.vendedorId === id)?.nombre ?? id : '';
@@ -47,7 +51,12 @@ export default function LeadsTable({
           {leads.map((lead) => {
             const vendedor = nameFor(lead.vendedorId);
             return (
-              <tr key={lead.leadId}>
+              <tr
+                key={lead.leadId}
+                className="row-click"
+                onClick={() => onSelect(lead)}
+                title="Ver detalle del lead"
+              >
                 <td>
                   <div className="cell-main">
                     <Avatar name={lead.nombre || '?'} />
@@ -65,10 +74,18 @@ export default function LeadsTable({
                 </td>
                 <td>
                   {vendedor ? (
-                    <div className="owner">
+                    <button
+                      type="button"
+                      className="owner owner-btn"
+                      title={`Filtrar por ${vendedor}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (lead.vendedorId) onVendorFilter(lead.vendedorId);
+                      }}
+                    >
                       <Avatar name={vendedor} />
                       {vendedor}
-                    </div>
+                    </button>
                   ) : (
                     <span className="sub">Sin asignar</span>
                   )}
