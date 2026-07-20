@@ -15,9 +15,7 @@ export default function Topbar({
 }) {
   return (
     <div className="topbar">
-      <div className="brand-sm">
-        <span className="logo">🚗</span> CarCompra
-      </div>
+      <div className="brand-sm">CarCompra</div>
       <div className="search">
         <span className="si">🔍</span>
         <input

@@ -98,10 +98,6 @@ body {
   display: flex; align-items: center; gap: 10px; padding: 4px 8px 22px;
   font-weight: 700; font-size: 19px; letter-spacing: -0.02em;
 }
-.brand .logo {
-  width: 30px; height: 30px; border-radius: 9px; background: var(--ink);
-  color: #fff; display: grid; place-items: center; font-size: 16px;
-}
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav button {
   display: flex; align-items: center; gap: 12px; padding: 10px 12px;
@@ -240,11 +236,7 @@ table.leads tbody tr:hover { background: var(--hover); }
   .topbar .brand-sm {
     display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 17px;
   }
-  .topbar .brand-sm .logo {
-    width: 26px; height: 26px; border-radius: 8px; background: var(--ink);
-    color: #fff; display: grid; place-items: center; font-size: 14px;
-  }
-  .search { max-width: none; }
+    .search { max-width: none; }
   .content { padding: 6px 16px 32px; }
   .topbar { padding: 14px 16px; }
 }

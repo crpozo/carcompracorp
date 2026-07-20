@@ -18,9 +18,7 @@ export default function Sidebar({
 }) {
   return (
     <aside className="sidebar">
-      <div className="brand">
-        <span className="logo">🚗</span> CarCompra
-      </div>
+      <div className="brand">CarCompra</div>
       <nav className="nav">
         {ITEMS.map((it) => (
           <button
