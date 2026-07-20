@@ -103,7 +103,7 @@ function Dashboard() {
     return leads.filter((l) => {
       if (vendorFilter && l.vendedorId !== vendorFilter) return false;
       if (!q) return true;
-      return [l.nombre, l.telefono, l.anuncioOrigen, l.mensaje, nameFor(l.vendedorId)]
+      return [l.nombre, l.telefono, l.anuncioOrigen, l.mensaje, l.ultimoMensaje, nameFor(l.vendedorId)]
         .some((f) => (f ?? '').toLowerCase().includes(q));
     });
   }, [leads, query, vendorFilter, nameFor]);

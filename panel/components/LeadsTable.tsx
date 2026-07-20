@@ -68,8 +68,11 @@ export default function LeadsTable({
                 </td>
                 <td className="anuncio">{lead.anuncioOrigen || '—'}</td>
                 <td>
-                  <div className="msg-cell" title={lead.mensaje || ''}>
-                    {lead.mensaje || '—'}
+                  <div
+                    className="msg-cell"
+                    title={lead.ultimoMensaje || lead.mensaje || ''}
+                  >
+                    {lead.ultimoMensaje || lead.mensaje || '—'}
                   </div>
                 </td>
                 <td>
