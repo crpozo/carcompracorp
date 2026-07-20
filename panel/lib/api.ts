@@ -24,6 +24,7 @@ export interface Lead {
   creadoEn: string;
   ultimoMensaje?: string;
   ultimoMensajeEn?: string;
+  historial?: { texto: string; en: string }[];
 }
 
 export interface Vendedor {

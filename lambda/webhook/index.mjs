@@ -109,11 +109,19 @@ async function procesarMensaje(value, msg, nowIso) {
   // sin volver a notificar.
   const existente = await leadActivoPorTelefono(lead.telefono);
   if (existente) {
+    // Acumular en el historial del caso (lista append-only de {texto, en}).
     await ddb.send(new UpdateCommand({
       TableName: LEADS_TABLE,
       Key: { leadId: existente.leadId },
-      UpdateExpression: 'SET ultimoMensaje = :m, ultimoMensajeEn = :t',
-      ExpressionAttributeValues: { ':m': lead.mensaje || '', ':t': nowIso },
+      UpdateExpression:
+        'SET ultimoMensaje = :m, ultimoMensajeEn = :t, ' +
+        'historial = list_append(if_not_exists(historial, :vacio), :nuevo)',
+      ExpressionAttributeValues: {
+        ':m': lead.mensaje || '',
+        ':t': nowIso,
+        ':vacio': [],
+        ':nuevo': [{ texto: lead.mensaje || '', en: nowIso }],
+      },
     }));
     console.log('Mensaje adicional acumulado en caso existente', {
       leadId: existente.leadId,
@@ -121,6 +129,9 @@ async function procesarMensaje(value, msg, nowIso) {
     });
     return;
   }
+
+  // Lead nuevo: el historial arranca con el mensaje inicial.
+  lead.historial = [{ texto: lead.mensaje || '', en: lead.creadoEn }];
 
   // Dedupe por wamid: si ya existia, WhatsApp reintento; no reprocesar.
   const esNuevo = await saveLeadIfNew(lead);

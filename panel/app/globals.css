@@ -355,3 +355,8 @@ table.leads tbody tr:hover { background: var(--hover); }
   border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.55;
   white-space: pre-wrap; word-break: break-word;
 }
+
+/* ---------- Hilo de mensajes en el drawer ---------- */
+.msg-thread { display: flex; flex-direction: column; gap: 10px; }
+.msg-item .f-msg { margin: 0; }
+.msg-time { font-size: 11px; color: var(--ink3); margin-top: 4px; padding-left: 2px; }

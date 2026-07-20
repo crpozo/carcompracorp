@@ -18,6 +18,38 @@ function formatFechaLarga(iso: string): string {
   });
 }
 
+function formatHora(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString('es-EC', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+// Hilo completo del cliente. Los leads nuevos traen `historial`; para los
+// anteriores al cambio se reconstruye con mensaje inicial + ultimoMensaje.
+function historial(lead: Lead): { texto: string; en: string }[] {
+  const out: { texto: string; en: string }[] = [];
+  if (lead.mensaje) out.push({ texto: lead.mensaje, en: lead.creadoEn });
+  for (const h of lead.historial ?? []) {
+    if (out.length === 1 && h.texto === lead.mensaje && h.en === lead.creadoEn)
+      continue; // el inicial ya está
+    out.push(h);
+  }
+  if (
+    !lead.historial?.length &&
+    lead.ultimoMensaje &&
+    lead.ultimoMensaje !== lead.mensaje
+  ) {
+    out.push({ texto: lead.ultimoMensaje, en: lead.ultimoMensajeEn ?? '' });
+  }
+  return out.length ? out : [{ texto: '—', en: lead.creadoEn }];
+}
+
 export default function LeadDrawer({
   lead,
   vendedores,
@@ -68,21 +100,18 @@ export default function LeadDrawer({
         )}
 
         <div className="drawer-field">
-          <div className="f-label">Mensaje inicial</div>
-          <p className="f-msg">{lead.mensaje || '—'}</p>
-        </div>
-
-        {lead.ultimoMensaje && lead.ultimoMensaje !== lead.mensaje && (
-          <div className="drawer-field">
-            <div className="f-label">
-              Último mensaje{' '}
-              {lead.ultimoMensajeEn
-                ? `· ${formatFechaLarga(lead.ultimoMensajeEn)}`
-                : ''}
-            </div>
-            <p className="f-msg">{lead.ultimoMensaje}</p>
+          <div className="f-label">
+            Historial de mensajes ({historial(lead).length})
           </div>
-        )}
+          <div className="msg-thread">
+            {historial(lead).map((m, i) => (
+              <div className="msg-item" key={`${m.en}-${i}`}>
+                <p className="f-msg">{m.texto || '—'}</p>
+                <div className="msg-time">{formatHora(m.en)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         <div className="drawer-field">
           <div className="f-label">Anuncio de origen</div>
