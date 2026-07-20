@@ -38,6 +38,35 @@ export async function saveLeadIfNew(lead) {
   }
 }
 
+// Estados que cierran un caso: un mensaje posterior del mismo cliente abre uno nuevo.
+const ESTADOS_CERRADOS = new Set(['cerrado', 'perdido']);
+
+/**
+ * Busca un lead ACTIVO (no cerrado/perdido) para un telefono.
+ * Un cliente = un caso: los mensajes siguientes se acumulan en su lead activo
+ * en vez de crear leads nuevos que reboten entre vendedores.
+ * (Volumen bajo: Scan con filtro es suficiente; migrar a GSI si crece.)
+ * @returns {Promise<object|null>} el lead activo o null.
+ */
+export async function leadActivoPorTelefono(telefono) {
+  if (!telefono) return null;
+  let ExclusiveStartKey;
+  do {
+    const res = await ddb.send(new ScanCommand({
+      TableName: LEADS_TABLE,
+      FilterExpression: 'telefono = :t',
+      ExpressionAttributeValues: { ':t': telefono },
+      ExclusiveStartKey,
+    }));
+    const activo = (res.Items || []).find(
+      (l) => !ESTADOS_CERRADOS.has(String(l.estado || '').toLowerCase())
+    );
+    if (activo) return activo;
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return null;
+}
+
 /**
  * Devuelve los vendedores activos ordenados por 'orden' ascendente.
  * @returns {Promise<Array>} lista de vendedores activos.

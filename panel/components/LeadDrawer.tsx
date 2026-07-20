@@ -68,9 +68,21 @@ export default function LeadDrawer({
         )}
 
         <div className="drawer-field">
-          <div className="f-label">Mensaje completo</div>
+          <div className="f-label">Mensaje inicial</div>
           <p className="f-msg">{lead.mensaje || '—'}</p>
         </div>
+
+        {lead.ultimoMensaje && lead.ultimoMensaje !== lead.mensaje && (
+          <div className="drawer-field">
+            <div className="f-label">
+              Último mensaje{' '}
+              {lead.ultimoMensajeEn
+                ? `· ${formatFechaLarga(lead.ultimoMensajeEn)}`
+                : ''}
+            </div>
+            <p className="f-msg">{lead.ultimoMensaje}</p>
+          </div>
+        )}
 
         <div className="drawer-field">
           <div className="f-label">Anuncio de origen</div>

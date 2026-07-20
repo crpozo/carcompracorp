@@ -3,7 +3,7 @@
 // wamid, asigna vendedor round-robin y notifica via WhatsApp Cloud API.
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { getSecrets } from './lib/secrets.mjs';
-import { ddb, saveLeadIfNew } from './lib/dynamo.mjs';
+import { ddb, saveLeadIfNew, leadActivoPorTelefono } from './lib/dynamo.mjs';
 import { buildLead } from './lib/parse.mjs';
 import { assignVendedor } from './lib/roundrobin.mjs';
 import { notifyVendedor } from './lib/whatsapp.mjs';
@@ -103,6 +103,24 @@ async function handleIncoming(event) {
  */
 async function procesarMensaje(value, msg, nowIso) {
   const lead = buildLead(value, msg, nowIso);
+
+  // Un cliente = un caso: si el telefono ya tiene un lead activo (no cerrado/
+  // perdido), este mensaje se acumula ahi — sin lead nuevo, sin reasignar y
+  // sin volver a notificar.
+  const existente = await leadActivoPorTelefono(lead.telefono);
+  if (existente) {
+    await ddb.send(new UpdateCommand({
+      TableName: LEADS_TABLE,
+      Key: { leadId: existente.leadId },
+      UpdateExpression: 'SET ultimoMensaje = :m, ultimoMensajeEn = :t',
+      ExpressionAttributeValues: { ':m': lead.mensaje || '', ':t': nowIso },
+    }));
+    console.log('Mensaje adicional acumulado en caso existente', {
+      leadId: existente.leadId,
+      telefono: lead.telefono,
+    });
+    return;
+  }
 
   // Dedupe por wamid: si ya existia, WhatsApp reintento; no reprocesar.
   const esNuevo = await saveLeadIfNew(lead);

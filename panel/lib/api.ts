@@ -22,6 +22,8 @@ export interface Lead {
   vendedorId?: string;
   estado: Estado | string;
   creadoEn: string;
+  ultimoMensaje?: string;
+  ultimoMensajeEn?: string;
 }
 
 export interface Vendedor {
