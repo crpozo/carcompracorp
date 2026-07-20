@@ -13,6 +13,9 @@ const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v21.0';
 const TEMPLATE_NAME = process.env.TEMPLATE_NAME || 'nuevo_lead';
 const TEMPLATE_LANG = process.env.TEMPLATE_LANG || 'es';
 
+// Remitentes del sistema de Meta (avisos de setup, etc.) que NUNCA son leads.
+const REMITENTES_IGNORADOS = new Set(['16465894168']);
+
 export async function handler(event) {
   const method = event?.requestContext?.http?.method;
 
@@ -81,6 +84,10 @@ async function handleIncoming(event) {
 
   // Procesar cada mensaje aislado: un fallo individual nunca impide el 200 final.
   for (const msg of value.messages) {
+    if (msg?.from && REMITENTES_IGNORADOS.has(msg.from)) {
+      console.log('Mensaje de sistema de Meta ignorado', { from: msg.from, id: msg.id });
+      continue;
+    }
     try {
       await procesarMensaje(value, msg, nowIso);
     } catch (err) {
