@@ -60,3 +60,74 @@ export async function notifyVendedor({
 
   return res.json();
 }
+
+/**
+ * Envia un texto libre al destinatario (requiere ventana de 24 h abierta).
+ * Lanza Error con el cuerpo de la respuesta si Meta lo rechaza.
+ */
+export async function enviarTexto({ token, phoneNumberId, apiVersion, to, texto }) {
+  const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body: texto, preview_url: false },
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`WhatsApp API ${res.status}: ${errText}`);
+  }
+  return res.json();
+}
+
+/**
+ * Reenvio del mensaje del cliente via plantilla `nuevo_mensaje` (para cuando
+ * la ventana de 24 h con el vendedor esta cerrada). Params: nombre, texto.
+ */
+export async function enviarPlantillaNuevoMensaje({
+  token,
+  phoneNumberId,
+  apiVersion,
+  to,
+  nombre,
+  texto,
+}) {
+  const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'template',
+      template: {
+        name: 'nuevo_mensaje',
+        language: { code: 'es' },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: nombre },
+              { type: 'text', text: texto },
+            ],
+          },
+        ],
+      },
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`WhatsApp API ${res.status}: ${errText}`);
+  }
+  return res.json();
+}

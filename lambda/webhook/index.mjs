@@ -3,10 +3,19 @@
 // wamid, asigna vendedor round-robin y notifica via WhatsApp Cloud API.
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { getSecrets } from './lib/secrets.mjs';
-import { ddb, saveLeadIfNew, leadActivoPorTelefono } from './lib/dynamo.mjs';
+import {
+  ddb,
+  saveLeadIfNew,
+  leadActivoPorTelefono,
+  activeVendedores,
+} from './lib/dynamo.mjs';
 import { buildLead } from './lib/parse.mjs';
 import { assignVendedor } from './lib/roundrobin.mjs';
-import { notifyVendedor } from './lib/whatsapp.mjs';
+import {
+  notifyVendedor,
+  enviarTexto,
+  enviarPlantillaNuevoMensaje,
+} from './lib/whatsapp.mjs';
 
 const LEADS_TABLE = process.env.LEADS_TABLE;
 const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v21.0';
@@ -98,8 +107,26 @@ async function handleIncoming(event) {
 
   const nowIso = new Date().toISOString();
 
+  // Telefonos de los vendedores: sus mensajes al numero del negocio NO son
+  // leads (p.ej. cuando responden "ok" a una notificacion — eso ademas abre
+  // su ventana de 24 h y permite reenviarles texto libre).
+  let telefonosVendedores = new Set();
+  try {
+    telefonosVendedores = new Set(
+      (await activeVendedores()).map((v) => v.telefono)
+    );
+  } catch (err) {
+    console.error('No se pudo cargar vendedores para el filtro:', err.message);
+  }
+
   // Procesar cada mensaje aislado: un fallo individual nunca impide el 200 final.
   for (const msg of value.messages) {
+    if (msg?.from && telefonosVendedores.has(msg.from)) {
+      console.log('Mensaje de un VENDEDOR al numero del negocio (no es lead)', {
+        from: msg.from,
+      });
+      continue;
+    }
     if (msg?.from && REMITENTES_IGNORADOS.has(msg.from)) {
       // Se registra el TEXTO para poder leer codigos de verificacion que Meta
       // envia al numero (p.ej. al vincular la pagina de Facebook), sin crear leads.
@@ -118,6 +145,56 @@ async function handleIncoming(event) {
   }
 
   return { statusCode: 200, body: 'ok' };
+}
+
+/**
+ * Reenvia el texto del cliente al CELULAR del vendedor asignado, para que la
+ * conversacion se vea en ambos lados (CRM y telefono). Texto libre si su
+ * ventana de 24 h esta abierta; si no, plantilla `nuevo_mensaje`. Nunca lanza.
+ */
+async function reenviarAlVendedor(vendedor, cliente, texto) {
+  if (!vendedor?.telefono || !texto) return;
+  try {
+    const { WHATSAPP_TOKEN, PHONE_NUMBER_ID } = await getSecrets();
+    const base = {
+      token: WHATSAPP_TOKEN,
+      phoneNumberId: PHONE_NUMBER_ID,
+      apiVersion: GRAPH_API_VERSION,
+    };
+    const quien = cliente.nombre || `+${cliente.telefono}`;
+    // Plantilla PRIMERO: entrega garantizada con ventana abierta o cerrada
+    // (el rechazo por ventana del texto libre llega asincrono y no se puede
+    // atrapar aqui). Si la plantilla aun esta en revision, se intenta texto
+    // libre como respaldo.
+    try {
+      await enviarPlantillaNuevoMensaje({
+        ...base,
+        to: vendedor.telefono,
+        nombre: `${quien} (+${cliente.telefono})`,
+        texto,
+      });
+      console.log('Mensaje del cliente reenviado por plantilla nuevo_mensaje', {
+        vendedorId: vendedor.vendedorId,
+      });
+    } catch (errPlantilla) {
+      console.error('Plantilla nuevo_mensaje fallo, intentando texto libre', {
+        error: errPlantilla.message.slice(0, 200),
+      });
+      await enviarTexto({
+        ...base,
+        to: vendedor.telefono,
+        texto: `💬 ${quien} (+${cliente.telefono}):\n\n${texto}`,
+      });
+      console.log('Mensaje del cliente reenviado al vendedor (texto libre)', {
+        vendedorId: vendedor.vendedorId,
+      });
+    }
+  } catch (err) {
+    console.error('Fallo reenvio al vendedor', {
+      vendedorId: vendedor?.vendedorId,
+      error: err.message,
+    });
+  }
 }
 
 /**
@@ -149,6 +226,23 @@ async function procesarMensaje(value, msg, nowIso) {
       leadId: existente.leadId,
       telefono: lead.telefono,
     });
+    // Reenviar el mensaje al CELULAR del vendedor que lleva este caso.
+    if (existente.vendedorId) {
+      try {
+        const vend = (await activeVendedores()).find(
+          (v) => v.vendedorId === existente.vendedorId
+        );
+        if (vend) {
+          await reenviarAlVendedor(
+            vend,
+            { nombre: existente.nombre, telefono: existente.telefono },
+            lead.mensaje || ''
+          );
+        }
+      } catch (err) {
+        console.error('No se pudo reenviar al vendedor:', err.message);
+      }
+    }
     return;
   }
 
@@ -211,4 +305,8 @@ async function procesarMensaje(value, msg, nowIso) {
       error: err.message,
     });
   }
+
+  // Reenviar tambien el TEXTO del cliente al celular del vendedor, para que
+  // el chat exista en ambos lados (celular y CRM) desde el primer mensaje.
+  await reenviarAlVendedor(vendedor, lead, lead.mensaje || '');
 }
