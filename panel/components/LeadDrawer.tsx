@@ -1,12 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  responderLead,
-  type Lead,
-  type MensajeHistorial,
-  type Vendedor,
-} from '../lib/api';
+import type { Lead, MensajeHistorial, Vendedor } from '../lib/api';
 import Avatar from './Avatar';
 import StatusBadge from './StatusBadge';
 
@@ -75,9 +70,6 @@ export default function LeadDrawer({
 }) {
   const [hilo, setHilo] = useState<MensajeHistorial[]>([]);
   const [estado, setEstado] = useState<string>('');
-  const [texto, setTexto] = useState('');
-  const [enviando, setEnviando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
 
   // Reset del estado local cuando cambia el lead abierto.
@@ -85,8 +77,6 @@ export default function LeadDrawer({
     if (lead) {
       setHilo(construirHilo(lead));
       setEstado(lead.estado ?? 'nuevo');
-      setTexto('');
-      setError(null);
     }
   }, [lead]);
 
@@ -109,23 +99,6 @@ export default function LeadDrawer({
     `Hola${primerNombre ? ` ${primerNombre}` : ''}, le saluda CarCompra 🚗. ` +
       'Recibimos su consulta y con gusto le ayudamos.'
   );
-
-  const enviar = async () => {
-    const t = texto.trim();
-    if (!t || enviando) return;
-    setEnviando(true);
-    setError(null);
-    try {
-      const res = await responderLead(lead.leadId, t);
-      setHilo((h) => [...h, res.entrada]);
-      setEstado(res.estado || estado);
-      setTexto('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo enviar.');
-    } finally {
-      setEnviando(false);
-    }
-  };
 
   return (
     <>
@@ -176,32 +149,6 @@ export default function LeadDrawer({
                 </div>
               </div>
             ))}
-          </div>
-          <div className="composer">
-            <textarea
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              placeholder={`Responder a ${primerNombre || 'cliente'} por WhatsApp…`}
-              rows={2}
-              disabled={enviando}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  enviar();
-                }
-              }}
-            />
-            <button
-              className="btn dark"
-              onClick={enviar}
-              disabled={enviando || !texto.trim()}
-            >
-              {enviando ? 'Enviando…' : 'Enviar'}
-            </button>
-          </div>
-          {error && <div className="composer-error">{error}</div>}
-          <div className="composer-hint">
-            Se envía desde el número del negocio y queda en el historial.
           </div>
         </div>
 
