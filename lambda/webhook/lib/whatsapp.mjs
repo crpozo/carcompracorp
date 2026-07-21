@@ -88,6 +88,41 @@ export async function enviarTexto({ token, phoneNumberId, apiVersion, to, texto 
 }
 
 /**
+ * Reacciona con un emoji a un mensaje recibido (p.ej. ✅ para confirmarle al
+ * vendedor que su respuesta ya se le envio al cliente). Requiere ventana
+ * abierta con el destinatario — siempre lo esta, porque se reacciona a un
+ * mensaje que el acaba de mandar.
+ */
+export async function enviarReaccion({
+  token,
+  phoneNumberId,
+  apiVersion,
+  to,
+  messageId,
+  emoji,
+}) {
+  const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'reaction',
+      reaction: { message_id: messageId, emoji },
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`WhatsApp API ${res.status}: ${errText}`);
+  }
+  return res.json();
+}
+
+/**
  * Reenvio del mensaje del cliente via plantilla `nuevo_mensaje` (para cuando
  * la ventana de 24 h con el vendedor esta cerrada). Params: nombre, texto.
  */

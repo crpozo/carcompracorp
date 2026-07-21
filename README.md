@@ -159,6 +159,29 @@ Cognito le envió por correo) y establece la contraseña definitiva.
 
 ---
 
+## 8b. Responder desde el celular (sin partir la conversación)
+
+Los mensajes del cliente se le reenvían al celular del vendedor **desde el número
+del negocio**. El vendedor puede contestar ahí mismo (en ese chat con el número
+del negocio) y el webhook:
+
+1. Identifica el caso: si contestó **citando** (deslizar a la derecha) un mensaje
+   reenviado o la notificación `nuevo_lead`, usa ese caso; si no hay cita, solo
+   enruta cuando el vendedor tiene **exactamente un** caso activo (con varios, le
+   pide reenviar citando).
+2. Envía el texto al cliente **desde el número del negocio** (misma ventana de
+   24 h que aplica al panel; si está cerrada, le avisa al vendedor).
+3. Lo registra en el `historial` del lead (aparece en el panel como respuesta del
+   vendedor) y confirma con una reacción ✅ sobre el mensaje del vendedor.
+
+> **Importante**: el botón verde "Escribir por WhatsApp" del panel abre el
+> WhatsApp **personal** del vendedor. Eso crea un **segundo chat** que el cliente
+> ve por separado y que **no** se puede sincronizar (Meta no expone chats
+> personales). Para que todo quede en un solo hilo y en el panel, responder
+> siempre desde el panel o desde el chat con el número del negocio.
+
+---
+
 ## 9. Checklist de lanzamiento
 
 - [ ] `sam build && sam deploy` completado; Outputs anotados.

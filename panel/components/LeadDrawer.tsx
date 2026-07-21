@@ -229,8 +229,10 @@ export default function LeadDrawer({
           {errorSend && <div className="composer-error">{errorSend}</div>}
           <div className="composer-hint">
             Esta respuesta sale del número del negocio (KING PEARL) y queda en el
-            historial. El botón verde de arriba abre tu WhatsApp personal y NO se
-            registra.
+            historial. También puedes responder desde tu celular: contesta en el
+            chat del número del negocio (donde te llegan los mensajes del
+            cliente) y se reenvía y registra aquí. El botón verde abre tu
+            WhatsApp personal: crea OTRO chat con el cliente y NO se registra.
           </div>
         </div>
 

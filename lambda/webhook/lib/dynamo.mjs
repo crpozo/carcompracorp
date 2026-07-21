@@ -3,7 +3,9 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DynamoDBDocumentClient,
   PutCommand,
+  QueryCommand,
   ScanCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
@@ -41,6 +43,11 @@ export async function saveLeadIfNew(lead) {
 // Estados que cierran un caso: un mensaje posterior del mismo cliente abre uno nuevo.
 const ESTADOS_CERRADOS = new Set(['cerrado', 'perdido']);
 
+/** Un lead cuenta como activo mientras su estado no sea cerrado/perdido. */
+export function esLeadActivo(lead) {
+  return !ESTADOS_CERRADOS.has(String(lead?.estado || '').toLowerCase());
+}
+
 /**
  * Busca un lead ACTIVO (no cerrado/perdido) para un telefono.
  * Un cliente = un caso: los mensajes siguientes se acumulan en su lead activo
@@ -65,6 +72,75 @@ export async function leadActivoPorTelefono(telefono) {
     ExclusiveStartKey = res.LastEvaluatedKey;
   } while (ExclusiveStartKey);
   return null;
+}
+
+/**
+ * Leads ACTIVOS asignados a un vendedor, del mas reciente al mas antiguo.
+ * Se usa para enrutar la respuesta que el vendedor manda desde su celular.
+ * @returns {Promise<Array>} leads activos del vendedor.
+ */
+export async function leadsActivosPorVendedor(vendedorId) {
+  if (!vendedorId) return [];
+  const items = [];
+  let ExclusiveStartKey;
+  do {
+    const res = await ddb.send(new QueryCommand({
+      TableName: LEADS_TABLE,
+      IndexName: 'gsi-vendedor',
+      KeyConditionExpression: 'vendedorId = :v',
+      ExpressionAttributeValues: { ':v': vendedorId },
+      ScanIndexForward: false, // SK = creadoEn, mas reciente primero
+      ExclusiveStartKey,
+    }));
+    items.push(...(res.Items || []));
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items.filter(esLeadActivo);
+}
+
+/**
+ * Busca el lead cuyo reenvio al vendedor tiene este wamid: permite que el
+ * vendedor conteste CITANDO el mensaje reenviado y llegue al caso correcto.
+ * (Volumen bajo: Scan con filtro es suficiente; migrar a GSI si crece.)
+ * @returns {Promise<object|null>} el lead o null.
+ */
+export async function leadPorWamidReenvio(wamid) {
+  if (!wamid) return null;
+  let ExclusiveStartKey;
+  do {
+    const res = await ddb.send(new ScanCommand({
+      TableName: LEADS_TABLE,
+      FilterExpression: 'contains(wamidsReenvio, :w)',
+      ExpressionAttributeValues: { ':w': wamid },
+      ExclusiveStartKey,
+    }));
+    if (res.Items?.length) return res.Items[0];
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return null;
+}
+
+/**
+ * Registra el wamid de un mensaje que el negocio le envio al vendedor
+ * (notificacion o reenvio), para poder resolver respuestas citadas.
+ * Nunca lanza: perder un wamid solo degrada el enrutado por cita.
+ */
+export async function registrarWamidReenvio(leadId, wamid) {
+  if (!leadId || !wamid) return;
+  try {
+    await ddb.send(new UpdateCommand({
+      TableName: LEADS_TABLE,
+      Key: { leadId },
+      UpdateExpression:
+        'SET wamidsReenvio = list_append(if_not_exists(wamidsReenvio, :vacio), :w)',
+      ExpressionAttributeValues: { ':vacio': [], ':w': [wamid] },
+    }));
+  } catch (err) {
+    console.error('No se pudo registrar wamid de reenvio', {
+      leadId,
+      error: err.message,
+    });
+  }
 }
 
 /**
