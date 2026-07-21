@@ -66,6 +66,12 @@ export default function LeadDrawer({
       lead.vendedorId
     : '';
   const digits = (lead.telefono || '').replace(/\D/g, '');
+  // Saludo pre-escrito: al abrir el chat, el vendedor ya tiene el mensaje listo.
+  const primerNombre = (lead.nombre || '').trim().split(/\s+/)[0] || '';
+  const saludo = encodeURIComponent(
+    `Hola${primerNombre ? ` ${primerNombre}` : ''}, le saluda CarCompra 🚗. ` +
+      'Recibimos su consulta y con gusto le ayudamos.'
+  );
 
   return (
     <>
@@ -87,7 +93,7 @@ export default function LeadDrawer({
           <div className="lead-actions">
             <a
               className="btn wa"
-              href={`https://wa.me/${digits}`}
+              href={`https://wa.me/${digits}?text=${saludo}`}
               target="_blank"
               rel="noopener noreferrer"
             >
