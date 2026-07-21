@@ -1,7 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { eliminarLead, type Lead, type MensajeHistorial, type Vendedor } from '../lib/api';
+import {
+  eliminarLead,
+  responderLead,
+  type Lead,
+  type MensajeHistorial,
+  type Vendedor,
+} from '../lib/api';
 import Avatar from './Avatar';
 import StatusBadge from './StatusBadge';
 
@@ -74,6 +80,9 @@ export default function LeadDrawer({
   const [estado, setEstado] = useState<string>('');
   const [borrando, setBorrando] = useState(false);
   const [errorDel, setErrorDel] = useState<string | null>(null);
+  const [texto, setTexto] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [errorSend, setErrorSend] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
 
   // Reset del estado local cuando cambia el lead abierto.
@@ -83,6 +92,8 @@ export default function LeadDrawer({
       setEstado(lead.estado ?? 'nuevo');
       setBorrando(false);
       setErrorDel(null);
+      setTexto('');
+      setErrorSend(null);
     }
   }, [lead]);
 
@@ -105,6 +116,23 @@ export default function LeadDrawer({
     `Hola${primerNombre ? ` ${primerNombre}` : ''}, le saluda KING PEARL. ` +
       'Recibimos su consulta y con gusto le ayudamos.'
   );
+
+  const enviar = async () => {
+    const t = texto.trim();
+    if (!t || enviando) return;
+    setEnviando(true);
+    setErrorSend(null);
+    try {
+      const res = await responderLead(lead.leadId, t);
+      setHilo((h) => [...h, res.entrada]);
+      setEstado(res.estado || estado);
+      setTexto('');
+    } catch (e) {
+      setErrorSend(e instanceof Error ? e.message : 'No se pudo enviar.');
+    } finally {
+      setEnviando(false);
+    }
+  };
 
   const borrar = async () => {
     if (borrando) return;
@@ -174,6 +202,34 @@ export default function LeadDrawer({
                 </div>
               </div>
             ))}
+          </div>
+          <div className="composer">
+            <textarea
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder={`Responder a ${primerNombre || 'cliente'}…`}
+              rows={2}
+              disabled={enviando}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  enviar();
+                }
+              }}
+            />
+            <button
+              className="btn dark"
+              onClick={enviar}
+              disabled={enviando || !texto.trim()}
+            >
+              {enviando ? 'Enviando…' : 'Enviar'}
+            </button>
+          </div>
+          {errorSend && <div className="composer-error">{errorSend}</div>}
+          <div className="composer-hint">
+            Esta respuesta sale del número del negocio (KING PEARL) y queda en el
+            historial. El botón verde de arriba abre tu WhatsApp personal y NO se
+            registra.
           </div>
         </div>
 
