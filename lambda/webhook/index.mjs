@@ -136,7 +136,7 @@ async function procesarMensaje(value, msg, nowIso) {
         ':m': lead.mensaje || '',
         ':t': nowIso,
         ':vacio': [],
-        ':nuevo': [{ texto: lead.mensaje || '', en: nowIso }],
+        ':nuevo': [{ de: 'cliente', texto: lead.mensaje || '', en: nowIso }],
       },
     }));
     console.log('Mensaje adicional acumulado en caso existente', {
@@ -147,7 +147,7 @@ async function procesarMensaje(value, msg, nowIso) {
   }
 
   // Lead nuevo: el historial arranca con el mensaje inicial.
-  lead.historial = [{ texto: lead.mensaje || '', en: lead.creadoEn }];
+  lead.historial = [{ de: 'cliente', texto: lead.mensaje || '', en: lead.creadoEn }];
 
   // Dedupe por wamid: si ya existia, WhatsApp reintento; no reprocesar.
   const esNuevo = await saveLeadIfNew(lead);

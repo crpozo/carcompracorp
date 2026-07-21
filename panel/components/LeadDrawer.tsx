@@ -1,6 +1,12 @@
 'use client';
 
-import type { Lead, Vendedor } from '../lib/api';
+import { useEffect, useRef, useState } from 'react';
+import {
+  responderLead,
+  type Lead,
+  type MensajeHistorial,
+  type Vendedor,
+} from '../lib/api';
 import Avatar from './Avatar';
 import StatusBadge from './StatusBadge';
 
@@ -30,24 +36,32 @@ function formatHora(iso: string): string {
   });
 }
 
-// Hilo completo del cliente. Los leads nuevos traen `historial`; para los
-// anteriores al cambio se reconstruye con mensaje inicial + ultimoMensaje.
-function historial(lead: Lead): { texto: string; en: string }[] {
-  const out: { texto: string; en: string }[] = [];
-  if (lead.mensaje) out.push({ texto: lead.mensaje, en: lead.creadoEn });
-  for (const h of lead.historial ?? []) {
-    if (out.length === 1 && h.texto === lead.mensaje && h.en === lead.creadoEn)
-      continue; // el inicial ya está
-    out.push(h);
+// Hilo completo de la conversación. Los leads nuevos traen `historial`; para
+// los anteriores al cambio se reconstruye con mensaje inicial + ultimoMensaje.
+// Entradas sin `de` (guardadas antes del campo) se asumen del cliente.
+function construirHilo(lead: Lead): MensajeHistorial[] {
+  const out: MensajeHistorial[] = [];
+  if (lead.historial?.length) {
+    const primero = lead.historial[0];
+    const inicialYaIncluido =
+      primero && primero.texto === lead.mensaje;
+    if (lead.mensaje && !inicialYaIncluido) {
+      out.push({ de: 'cliente', texto: lead.mensaje, en: lead.creadoEn });
+    }
+    for (const h of lead.historial) {
+      out.push({ ...h, de: h.de ?? 'cliente' });
+    }
+    return out;
   }
-  if (
-    !lead.historial?.length &&
-    lead.ultimoMensaje &&
-    lead.ultimoMensaje !== lead.mensaje
-  ) {
-    out.push({ texto: lead.ultimoMensaje, en: lead.ultimoMensajeEn ?? '' });
+  if (lead.mensaje) out.push({ de: 'cliente', texto: lead.mensaje, en: lead.creadoEn });
+  if (lead.ultimoMensaje && lead.ultimoMensaje !== lead.mensaje) {
+    out.push({
+      de: 'cliente',
+      texto: lead.ultimoMensaje,
+      en: lead.ultimoMensajeEn ?? '',
+    });
   }
-  return out.length ? out : [{ texto: '—', en: lead.creadoEn }];
+  return out.length ? out : [{ de: 'cliente', texto: '—', en: lead.creadoEn }];
 }
 
 export default function LeadDrawer({
@@ -59,6 +73,29 @@ export default function LeadDrawer({
   vendedores: Vendedor[];
   onClose: () => void;
 }) {
+  const [hilo, setHilo] = useState<MensajeHistorial[]>([]);
+  const [estado, setEstado] = useState<string>('');
+  const [texto, setTexto] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
+
+  // Reset del estado local cuando cambia el lead abierto.
+  useEffect(() => {
+    if (lead) {
+      setHilo(construirHilo(lead));
+      setEstado(lead.estado ?? 'nuevo');
+      setTexto('');
+      setError(null);
+    }
+  }, [lead]);
+
+  // Autoscroll al final del hilo al abrir o al agregar mensajes.
+  useEffect(() => {
+    const el = threadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [hilo]);
+
   if (!lead) return null;
 
   const vendedor = lead.vendedorId
@@ -72,6 +109,23 @@ export default function LeadDrawer({
     `Hola${primerNombre ? ` ${primerNombre}` : ''}, le saluda CarCompra 🚗. ` +
       'Recibimos su consulta y con gusto le ayudamos.'
   );
+
+  const enviar = async () => {
+    const t = texto.trim();
+    if (!t || enviando) return;
+    setEnviando(true);
+    setError(null);
+    try {
+      const res = await responderLead(lead.leadId, t);
+      setHilo((h) => [...h, res.entrada]);
+      setEstado(res.estado || estado);
+      setTexto('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo enviar.');
+    } finally {
+      setEnviando(false);
+    }
+  };
 
   return (
     <>
@@ -106,16 +160,48 @@ export default function LeadDrawer({
         )}
 
         <div className="drawer-field">
-          <div className="f-label">
-            Historial de mensajes ({historial(lead).length})
-          </div>
-          <div className="msg-thread">
-            {historial(lead).map((m, i) => (
-              <div className="msg-item" key={`${m.en}-${i}`}>
-                <p className="f-msg">{m.texto || '—'}</p>
-                <div className="msg-time">{formatHora(m.en)}</div>
+          <div className="f-label">Conversación ({hilo.length})</div>
+          <div className="msg-thread" ref={threadRef}>
+            {hilo.map((m, i) => (
+              <div
+                className={`bubble-row ${m.de === 'vendedor' ? 'mine' : ''}`}
+                key={`${m.en}-${i}`}
+              >
+                <div className={`bubble ${m.de === 'vendedor' ? 'mine' : ''}`}>
+                  <p>{m.texto || '—'}</p>
+                  <div className="bubble-meta">
+                    {m.de === 'vendedor' ? `${m.por || 'panel'} · ` : ''}
+                    {formatHora(m.en)}
+                  </div>
+                </div>
               </div>
             ))}
+          </div>
+          <div className="composer">
+            <textarea
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder={`Responder a ${primerNombre || 'cliente'} por WhatsApp…`}
+              rows={2}
+              disabled={enviando}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  enviar();
+                }
+              }}
+            />
+            <button
+              className="btn dark"
+              onClick={enviar}
+              disabled={enviando || !texto.trim()}
+            >
+              {enviando ? 'Enviando…' : 'Enviar'}
+            </button>
+          </div>
+          {error && <div className="composer-error">{error}</div>}
+          <div className="composer-hint">
+            Se envía desde el número del negocio y queda en el historial.
           </div>
         </div>
 
@@ -142,7 +228,7 @@ export default function LeadDrawer({
 
         <div className="drawer-field">
           <div className="f-label">Estado</div>
-          <StatusBadge estado={lead.estado} />
+          <StatusBadge estado={estado || lead.estado} />
         </div>
       </aside>
     </>

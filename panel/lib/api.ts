@@ -12,6 +12,13 @@ export type Estado =
   | 'cerrado'
   | 'perdido';
 
+export interface MensajeHistorial {
+  de?: 'cliente' | 'vendedor' | string;
+  texto: string;
+  en: string;
+  por?: string;
+}
+
 export interface Lead {
   leadId: string;
   nombre: string;
@@ -24,7 +31,7 @@ export interface Lead {
   creadoEn: string;
   ultimoMensaje?: string;
   ultimoMensajeEn?: string;
-  historial?: { texto: string; en: string }[];
+  historial?: MensajeHistorial[];
 }
 
 export interface Vendedor {
@@ -123,4 +130,26 @@ export async function getStats(): Promise<Stats> {
     );
   }
   return { total, porVendedor };
+}
+
+export async function responderLead(
+  leadId: string,
+  texto: string
+): Promise<{ ok: boolean; entrada: MensajeHistorial; estado: string }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${BASE}/responder`, {
+    method: 'POST',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ leadId, texto }),
+    cache: 'no-store',
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg =
+      typeof data?.message === 'string'
+        ? data.message
+        : `Error ${res.status} al enviar la respuesta`;
+    throw new Error(msg);
+  }
+  return data;
 }
