@@ -49,7 +49,12 @@ function Dashboard() {
   const [query, setQuery] = useState('');
   const [vendorFilter, setVendorFilter] = useState('');
   const [page, setPage] = useState(1);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  // El lead abierto se deriva de la lista viva → se refresca con el polling.
+  const selectedLead = useMemo(
+    () => leads.find((l) => l.leadId === selectedLeadId) ?? null,
+    [leads, selectedLeadId]
+  );
 
   // Read everything once; filtering / search / pagination happen client-side.
   useEffect(() => {
@@ -90,6 +95,20 @@ function Dashboard() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Auto-refresco EN VIVO: trae leads (y stats) cada 15 s para que mensajes
+  // nuevos del cliente y respuestas del vendedor aparezcan sin recargar.
+  useEffect(() => {
+    const id = setInterval(() => {
+      getLeads()
+        .then(setLeads)
+        .catch(() => {});
+      getStats()
+        .then(setStats)
+        .catch(() => {});
+    }, 15000);
+    return () => clearInterval(id);
   }, []);
 
   const nameFor = useCallback(
@@ -244,7 +263,7 @@ function Dashboard() {
                     <LeadsTable
                       leads={paged}
                       vendedores={vendedores}
-                      onSelect={setSelectedLead}
+                      onSelect={(l) => setSelectedLeadId(l.leadId)}
                       onVendorFilter={onVendor}
                     />
                     <Pagination
@@ -266,9 +285,19 @@ function Dashboard() {
       <LeadDrawer
         lead={selectedLead}
         vendedores={vendedores}
-        onClose={() => setSelectedLead(null)}
-        onDeleted={(leadId) =>
-          setLeads((prev) => prev.filter((l) => l.leadId !== leadId))
+        onClose={() => setSelectedLeadId(null)}
+        onDeleted={(leadId) => {
+          setLeads((prev) => prev.filter((l) => l.leadId !== leadId));
+          setSelectedLeadId(null);
+        }}
+        onReplied={(leadId, entrada, estado) =>
+          setLeads((prev) =>
+            prev.map((l) =>
+              l.leadId === leadId
+                ? { ...l, historial: [...(l.historial ?? []), entrada], estado }
+                : l
+            )
+          )
         }
       />
     </div>

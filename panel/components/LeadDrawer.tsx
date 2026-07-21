@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   eliminarLead,
   responderLead,
@@ -44,8 +44,7 @@ function construirHilo(lead: Lead): MensajeHistorial[] {
   const out: MensajeHistorial[] = [];
   if (lead.historial?.length) {
     const primero = lead.historial[0];
-    const inicialYaIncluido =
-      primero && primero.texto === lead.mensaje;
+    const inicialYaIncluido = primero && primero.texto === lead.mensaje;
     if (lead.mensaje && !inicialYaIncluido) {
       out.push({ de: 'cliente', texto: lead.mensaje, en: lead.creadoEn });
     }
@@ -70,38 +69,40 @@ export default function LeadDrawer({
   vendedores,
   onClose,
   onDeleted,
+  onReplied,
 }: {
   lead: Lead | null;
   vendedores: Vendedor[];
   onClose: () => void;
   onDeleted: (leadId: string) => void;
+  onReplied: (leadId: string, entrada: MensajeHistorial, estado: string) => void;
 }) {
-  const [hilo, setHilo] = useState<MensajeHistorial[]>([]);
-  const [estado, setEstado] = useState<string>('');
-  const [borrando, setBorrando] = useState(false);
-  const [errorDel, setErrorDel] = useState<string | null>(null);
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [errorSend, setErrorSend] = useState<string | null>(null);
+  const [borrando, setBorrando] = useState(false);
+  const [errorDel, setErrorDel] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
 
-  // Reset del estado local cuando cambia el lead abierto.
-  useEffect(() => {
-    if (lead) {
-      setHilo(construirHilo(lead));
-      setEstado(lead.estado ?? 'nuevo');
-      setBorrando(false);
-      setErrorDel(null);
-      setTexto('');
-      setErrorSend(null);
-    }
-  }, [lead]);
+  const leadId = lead?.leadId;
 
-  // Autoscroll al final del hilo al abrir o al agregar mensajes.
+  // Reset de la caja/errores SOLO cuando cambia el lead abierto — así el
+  // auto-refresco del padre no borra lo que el usuario está escribiendo.
+  useEffect(() => {
+    setTexto('');
+    setErrorSend(null);
+    setErrorDel(null);
+    setBorrando(false);
+  }, [leadId]);
+
+  // Hilo derivado del lead VIVO: se actualiza solo con el polling del padre.
+  const hilo = useMemo(() => (lead ? construirHilo(lead) : []), [lead]);
+
+  // Autoscroll al final cuando aparece un mensaje nuevo.
   useEffect(() => {
     const el = threadRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [hilo]);
+  }, [hilo.length]);
 
   if (!lead) return null;
 
@@ -110,6 +111,7 @@ export default function LeadDrawer({
       lead.vendedorId
     : '';
   const digits = (lead.telefono || '').replace(/\D/g, '');
+  const estado = lead.estado || 'nuevo';
   // Saludo pre-escrito: al abrir el chat, el vendedor ya tiene el mensaje listo.
   const primerNombre = (lead.nombre || '').trim().split(/\s+/)[0] || '';
   const saludo = encodeURIComponent(
@@ -124,8 +126,7 @@ export default function LeadDrawer({
     setErrorSend(null);
     try {
       const res = await responderLead(lead.leadId, t);
-      setHilo((h) => [...h, res.entrada]);
-      setEstado(res.estado || estado);
+      onReplied(lead.leadId, res.entrada, res.estado);
       setTexto('');
     } catch (e) {
       setErrorSend(e instanceof Error ? e.message : 'No se pudo enviar.');
@@ -256,7 +257,7 @@ export default function LeadDrawer({
 
         <div className="drawer-field">
           <div className="f-label">Estado</div>
-          <StatusBadge estado={estado || lead.estado} />
+          <StatusBadge estado={estado} />
         </div>
 
         <div className="drawer-danger">
