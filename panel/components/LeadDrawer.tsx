@@ -102,7 +102,7 @@ export default function LeadDrawer({
   // Saludo pre-escrito: al abrir el chat, el vendedor ya tiene el mensaje listo.
   const primerNombre = (lead.nombre || '').trim().split(/\s+/)[0] || '';
   const saludo = encodeURIComponent(
-    `Hola${primerNombre ? ` ${primerNombre}` : ''}, le saluda CarCompra 🚗. ` +
+    `Hola${primerNombre ? ` ${primerNombre}` : ''}, le saluda KING PEARL. ` +
       'Recibimos su consulta y con gusto le ayudamos.'
   );
 
