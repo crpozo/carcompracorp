@@ -153,3 +153,21 @@ export async function responderLead(
   }
   return data;
 }
+
+export async function eliminarLead(leadId: string): Promise<void> {
+  const headers = await authHeaders();
+  const res = await fetch(`${BASE}/eliminar`, {
+    method: 'POST',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ leadId }),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(
+      typeof data?.message === 'string'
+        ? data.message
+        : `Error ${res.status} al eliminar el lead`
+    );
+  }
+}

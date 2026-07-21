@@ -386,3 +386,13 @@ table.leads tbody tr:hover { background: var(--hover); }
 .composer textarea:focus { border-color: var(--accent); }
 .composer-error { margin-top: 8px; color: #b91c1c; font-size: 13px; }
 .composer-hint { margin-top: 6px; color: var(--ink3); font-size: 11.5px; }
+
+/* ---------- Eliminar lead ---------- */
+.drawer-danger { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.btn-danger {
+  width: 100%; padding: 10px 16px; border-radius: 10px;
+  border: 1px solid #f3c9c9; background: #fdf1f1; color: #b91c1c;
+  font: inherit; font-weight: 600; font-size: 13.5px; cursor: pointer;
+}
+.btn-danger:hover { background: #fbe4e4; }
+.btn-danger:disabled { opacity: 0.5; cursor: default; }

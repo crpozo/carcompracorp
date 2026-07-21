@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { Lead, MensajeHistorial, Vendedor } from '../lib/api';
+import { eliminarLead, type Lead, type MensajeHistorial, type Vendedor } from '../lib/api';
 import Avatar from './Avatar';
 import StatusBadge from './StatusBadge';
 
@@ -63,13 +63,17 @@ export default function LeadDrawer({
   lead,
   vendedores,
   onClose,
+  onDeleted,
 }: {
   lead: Lead | null;
   vendedores: Vendedor[];
   onClose: () => void;
+  onDeleted: (leadId: string) => void;
 }) {
   const [hilo, setHilo] = useState<MensajeHistorial[]>([]);
   const [estado, setEstado] = useState<string>('');
+  const [borrando, setBorrando] = useState(false);
+  const [errorDel, setErrorDel] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
 
   // Reset del estado local cuando cambia el lead abierto.
@@ -77,6 +81,8 @@ export default function LeadDrawer({
     if (lead) {
       setHilo(construirHilo(lead));
       setEstado(lead.estado ?? 'nuevo');
+      setBorrando(false);
+      setErrorDel(null);
     }
   }, [lead]);
 
@@ -99,6 +105,25 @@ export default function LeadDrawer({
     `Hola${primerNombre ? ` ${primerNombre}` : ''}, le saluda CarCompra 🚗. ` +
       'Recibimos su consulta y con gusto le ayudamos.'
   );
+
+  const borrar = async () => {
+    if (borrando) return;
+    const ok = window.confirm(
+      `¿Eliminar el lead de "${lead.nombre || lead.telefono}"?\n\n` +
+        'Esta acción no se puede deshacer.'
+    );
+    if (!ok) return;
+    setBorrando(true);
+    setErrorDel(null);
+    try {
+      await eliminarLead(lead.leadId);
+      onDeleted(lead.leadId);
+      onClose();
+    } catch (e) {
+      setErrorDel(e instanceof Error ? e.message : 'No se pudo eliminar.');
+      setBorrando(false);
+    }
+  };
 
   return (
     <>
@@ -176,6 +201,18 @@ export default function LeadDrawer({
         <div className="drawer-field">
           <div className="f-label">Estado</div>
           <StatusBadge estado={estado || lead.estado} />
+        </div>
+
+        <div className="drawer-danger">
+          {errorDel && <div className="composer-error">{errorDel}</div>}
+          <button
+            type="button"
+            className="btn-danger"
+            onClick={borrar}
+            disabled={borrando}
+          >
+            {borrando ? 'Eliminando…' : '🗑 Eliminar lead'}
+          </button>
         </div>
       </aside>
     </>

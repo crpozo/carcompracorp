@@ -267,6 +267,9 @@ function Dashboard() {
         lead={selectedLead}
         vendedores={vendedores}
         onClose={() => setSelectedLead(null)}
+        onDeleted={(leadId) =>
+          setLeads((prev) => prev.filter((l) => l.leadId !== leadId))
+        }
       />
     </div>
   );

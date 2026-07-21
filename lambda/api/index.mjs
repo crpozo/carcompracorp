@@ -3,6 +3,7 @@ import {
   QueryCommand,
   GetCommand,
   UpdateCommand,
+  DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { ddb, LEADS_TABLE, VENDEDORES_TABLE } from './lib/dynamo.mjs';
 import { getSecrets } from './lib/secrets.mjs';
@@ -237,6 +238,34 @@ async function responder(event) {
   return jsonResponse(200, { ok: true, entrada, estado: nuevoEstado });
 }
 
+/**
+ * POST /eliminar — borra un lead por leadId (limpieza de tests/spam).
+ */
+async function eliminar(event) {
+  let body;
+  try {
+    const raw = event.isBase64Encoded
+      ? Buffer.from(event.body || '', 'base64').toString('utf8')
+      : event.body || '';
+    body = JSON.parse(raw);
+  } catch {
+    return jsonResponse(400, { message: 'JSON inválido' });
+  }
+
+  const leadId = body?.leadId;
+  if (!leadId) {
+    return jsonResponse(400, { message: 'leadId es requerido' });
+  }
+
+  await ddb.send(
+    new DeleteCommand({ TableName: LEADS_TABLE, Key: { leadId } }),
+  );
+  const quien =
+    event?.requestContext?.authorizer?.jwt?.claims?.email || 'panel';
+  console.log('Lead eliminado desde el panel', { leadId, por: quien });
+  return jsonResponse(200, { ok: true });
+}
+
 // Paginate through an entire table, accumulating all items.
 async function scanAll(tableName) {
   const items = [];
@@ -290,6 +319,10 @@ export async function handler(event) {
 
     if (method === 'POST' && path === '/responder') {
       return await responder(event);
+    }
+
+    if (method === 'POST' && path === '/eliminar') {
+      return await eliminar(event);
     }
 
     return jsonResponse(404, { message: 'Not found' });
