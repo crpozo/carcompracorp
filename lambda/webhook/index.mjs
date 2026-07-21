@@ -101,7 +101,13 @@ async function handleIncoming(event) {
   // Procesar cada mensaje aislado: un fallo individual nunca impide el 200 final.
   for (const msg of value.messages) {
     if (msg?.from && REMITENTES_IGNORADOS.has(msg.from)) {
-      console.log('Mensaje de sistema de Meta ignorado', { from: msg.from, id: msg.id });
+      // Se registra el TEXTO para poder leer codigos de verificacion que Meta
+      // envia al numero (p.ej. al vincular la pagina de Facebook), sin crear leads.
+      console.log('Mensaje de sistema de Meta ignorado', {
+        from: msg.from,
+        id: msg.id,
+        texto: msg.text?.body || '(sin texto)',
+      });
       continue;
     }
     try {
