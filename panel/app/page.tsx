@@ -170,12 +170,7 @@ function Dashboard() {
     <div className="app">
       <Sidebar view={view} onView={switchView} />
       <div className="main">
-        <Topbar
-          query={query}
-          onQuery={onQuery}
-          email={email}
-          onSignOut={() => signOut()}
-        />
+        <Topbar email={email} onSignOut={() => signOut()} />
         <div className="content">
           <div className="page-head">
             <div>
@@ -237,6 +232,14 @@ function Dashboard() {
             ) : view === 'leads' ? (
               <>
                 <div className="toolbar">
+                  <div className="search toolbar-search">
+                    <span className="si">🔍</span>
+                    <input
+                      value={query}
+                      onChange={(e) => onQuery(e.target.value)}
+                      placeholder="Buscar lead por nombre, teléfono o anuncio…"
+                    />
+                  </div>
                   <select
                     className="filter-pill"
                     value={vendorFilter}
@@ -249,7 +252,6 @@ function Dashboard() {
                       </option>
                     ))}
                   </select>
-                  <span className="spacer" />
                   <span className="result-note">
                     {loading
                       ? 'Cargando…'
