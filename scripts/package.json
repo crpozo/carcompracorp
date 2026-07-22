@@ -1,0 +1,10 @@
+{
+  "name": "carcompra-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Scripts de operación/auditoría del CRM (smoke-test, seed, etc.)",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.658.0",
+    "@aws-sdk/lib-dynamodb": "^3.658.0"
+  }
+}
