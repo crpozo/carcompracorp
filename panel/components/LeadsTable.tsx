@@ -19,11 +19,13 @@ function formatFecha(iso: string): string {
 export default function LeadsTable({
   leads,
   vendedores,
+  unreadIds,
   onSelect,
   onVendorFilter,
 }: {
   leads: Lead[];
   vendedores: Vendedor[];
+  unreadIds: Set<string>;
   onSelect: (lead: Lead) => void;
   onVendorFilter: (vendedorId: string) => void;
 }) {
@@ -50,16 +52,20 @@ export default function LeadsTable({
         <tbody>
           {leads.map((lead) => {
             const vendedor = nameFor(lead.vendedorId);
+            const unread = unreadIds.has(lead.leadId);
             return (
               <tr
                 key={lead.leadId}
-                className="row-click"
+                className={`row-click${unread ? ' row-unread' : ''}`}
                 onClick={() => onSelect(lead)}
                 title="Ver detalle del lead"
               >
                 <td>
                   <div className="cell-main">
-                    <Avatar name={lead.nombre || '?'} />
+                    <span className="avatar-wrap">
+                      <Avatar name={lead.nombre || '?'} />
+                      {unread && <span className="unread-dot" title="Mensaje sin leer" />}
+                    </span>
                     <div>
                       <div className="nm">{lead.nombre || 'Sin nombre'}</div>
                       <div className="sub">{lead.telefono || '—'}</div>

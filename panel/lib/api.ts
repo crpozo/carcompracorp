@@ -171,3 +171,21 @@ export async function eliminarLead(leadId: string): Promise<void> {
     );
   }
 }
+
+// Timestamp ISO más reciente entre los mensajes del CLIENTE de un lead.
+export function latestClientTs(lead: Lead): string {
+  let ts = lead.creadoEn || '';
+  for (const h of lead.historial ?? []) {
+    if ((h.de ?? 'cliente') !== 'vendedor' && h.en > ts) ts = h.en;
+  }
+  if (lead.ultimoMensajeEn && lead.ultimoMensajeEn > ts) ts = lead.ultimoMensajeEn;
+  return ts;
+}
+
+// Timestamp ISO más reciente de CUALQUIER mensaje (cliente o vendedor).
+export function latestAnyTs(lead: Lead): string {
+  let ts = lead.creadoEn || '';
+  for (const h of lead.historial ?? []) if (h.en > ts) ts = h.en;
+  if (lead.ultimoMensajeEn && lead.ultimoMensajeEn > ts) ts = lead.ultimoMensajeEn;
+  return ts;
+}

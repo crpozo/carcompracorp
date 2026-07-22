@@ -318,6 +318,17 @@ table.leads tbody tr:hover { background: var(--hover); }
 
 /* ---------- Filas clickeables + filtro por vendedor ---------- */
 .row-click { cursor: pointer; }
+
+/* No leído: burbuja roja sobre el avatar + nombre en negrita + realce sutil */
+.avatar-wrap { position: relative; display: inline-flex; }
+.unread-dot {
+  position: absolute; top: -3px; right: -3px; width: 12px; height: 12px;
+  border-radius: 50%; background: #ef4444; border: 2px solid var(--card);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.25);
+}
+table.leads tbody tr.row-unread { background: #fdf6f6; }
+table.leads tbody tr.row-unread:hover { background: #fbeeee; }
+.row-unread .nm { font-weight: 800; }
 .owner-btn {
   background: none; border: none; padding: 4px 8px 4px 4px; margin: -4px 0;
   border-radius: 999px; font: inherit; font-weight: 500; color: var(--ink);

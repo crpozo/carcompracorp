@@ -6,6 +6,8 @@ import {
   getLeads,
   getStats,
   getVendedores,
+  latestClientTs,
+  latestAnyTs,
   type Lead,
   type Stats as StatsType,
   type Vendedor,
@@ -21,6 +23,7 @@ import LeadDrawer from '../components/LeadDrawer';
 import Providers, { EMAIL_KEY, REMEMBER_KEY } from './providers';
 
 const PAGE_SIZE = 8;
+const READS_KEY = 'carcompra.reads'; // { leadId: isoTs de lo ya leído }
 
 const VIEW_META: Record<View, { crumb: string; title: string }> = {
   leads: { crumb: 'Contactos', title: 'Mis Leads' },
@@ -55,6 +58,43 @@ function Dashboard() {
     () => leads.find((l) => l.leadId === selectedLeadId) ?? null,
     [leads, selectedLeadId]
   );
+
+  // No leído: se marca leído (localStorage) al abrir un lead; un lead está
+  // "sin leer" si su último mensaje del CLIENTE es más nuevo que lo leído.
+  const [reads, setReads] = useState<Record<string, string>>({});
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(READS_KEY);
+      if (raw) setReads(JSON.parse(raw));
+    } catch {
+      /* almacenamiento no disponible */
+    }
+  }, []);
+  const markRead = useCallback((lead: Lead) => {
+    const ts = latestAnyTs(lead);
+    setReads((prev) => {
+      if (prev[lead.leadId] === ts) return prev;
+      const next = { ...prev, [lead.leadId]: ts };
+      try {
+        window.localStorage.setItem(READS_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+  // Mantener leído mientras el lead está abierto (incluye mensajes que llegan
+  // por el polling con el chat abierto).
+  useEffect(() => {
+    if (selectedLead) markRead(selectedLead);
+  }, [selectedLead, markRead]);
+  const unreadIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const l of leads) {
+      if (latestClientTs(l) > (reads[l.leadId] ?? '')) s.add(l.leadId);
+    }
+    return s;
+  }, [leads, reads]);
 
   // Read everything once; filtering / search / pagination happen client-side.
   useEffect(() => {
@@ -265,6 +305,7 @@ function Dashboard() {
                     <LeadsTable
                       leads={paged}
                       vendedores={vendedores}
+                      unreadIds={unreadIds}
                       onSelect={(l) => setSelectedLeadId(l.leadId)}
                       onVendorFilter={onVendor}
                     />
