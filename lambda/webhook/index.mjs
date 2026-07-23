@@ -165,9 +165,10 @@ async function handleIncoming(event) {
  * ventana de 24 h esta abierta; si no, plantilla `nuevo_mensaje`. Registra el
  * wamid del reenvio en el lead para que el vendedor pueda contestar CITANDO
  * ese mensaje y el texto llegue al cliente correcto. Nunca lanza.
+ * @returns {Promise<boolean>} true si el aviso salio; false si no se pudo.
  */
 async function reenviarAlVendedor(vendedor, cliente, texto, leadId) {
-  if (!vendedor?.telefono || !texto) return;
+  if (!vendedor?.telefono || !texto) return false;
   try {
     const { WHATSAPP_TOKEN, PHONE_NUMBER_ID } = await getSecrets();
     const base = {
@@ -205,11 +206,13 @@ async function reenviarAlVendedor(vendedor, cliente, texto, leadId) {
       });
     }
     await registrarWamidReenvio(leadId, envio?.messages?.[0]?.id);
+    return true;
   } catch (err) {
     console.error('Fallo reenvio al vendedor', {
       vendedorId: vendedor?.vendedorId,
       error: err.message,
     });
+    return false;
   }
 }
 
@@ -459,33 +462,43 @@ async function procesarMensaje(value, msg, nowIso) {
     vendedorId: vendedor.vendedorId,
   });
 
-  // Notificar al vendedor. El fallo de notificacion nunca bloquea el 200.
-  try {
-    const { WHATSAPP_TOKEN, PHONE_NUMBER_ID } = await getSecrets();
-    const notif = await notifyVendedor({
-      token: WHATSAPP_TOKEN,
-      phoneNumberId: PHONE_NUMBER_ID,
-      apiVersion: GRAPH_API_VERSION,
-      templateName: TEMPLATE_NAME,
-      templateLang: TEMPLATE_LANG,
-      vendedor,
-      lead,
-    });
-    // El wamid de la notificacion tambien enruta: contestar citandola vale.
-    await registrarWamidReenvio(lead.leadId, notif?.messages?.[0]?.id);
-    console.log('Notificacion enviada al vendedor', {
-      leadId: lead.leadId,
-      vendedorId: vendedor.vendedorId,
-    });
-  } catch (err) {
-    console.error('Fallo al notificar al vendedor', {
-      leadId: lead.leadId,
-      vendedorId: vendedor.vendedorId,
-      error: err.message,
-    });
-  }
+  // UN SOLO aviso al vendedor por lead nuevo. La plantilla `nuevo_mensaje`
+  // (via reenviarAlVendedor) ya incluye nombre, telefono y el texto del
+  // cliente, asi que enviar ademas `nuevo_lead` duplicaba el aviso: los
+  // vendedores veian "doble lead del mismo numero".
+  const enviado = await reenviarAlVendedor(
+    vendedor,
+    lead,
+    lead.mensaje || '',
+    lead.leadId
+  );
 
-  // Reenviar tambien el TEXTO del cliente al celular del vendedor, para que
-  // el chat exista en ambos lados (celular y CRM) desde el primer mensaje.
-  await reenviarAlVendedor(vendedor, lead, lead.mensaje || '', lead.leadId);
+  // Respaldo: si el reenvio no salio (p.ej. mensaje sin texto), avisar con la
+  // plantilla `nuevo_lead` para no perder el aviso del lead.
+  if (!enviado) {
+    try {
+      const { WHATSAPP_TOKEN, PHONE_NUMBER_ID } = await getSecrets();
+      const notif = await notifyVendedor({
+        token: WHATSAPP_TOKEN,
+        phoneNumberId: PHONE_NUMBER_ID,
+        apiVersion: GRAPH_API_VERSION,
+        templateName: TEMPLATE_NAME,
+        templateLang: TEMPLATE_LANG,
+        vendedor,
+        lead,
+      });
+      // El wamid de la notificacion tambien enruta: contestar citandola vale.
+      await registrarWamidReenvio(lead.leadId, notif?.messages?.[0]?.id);
+      console.log('Aviso de lead nuevo enviado (respaldo nuevo_lead)', {
+        leadId: lead.leadId,
+        vendedorId: vendedor.vendedorId,
+      });
+    } catch (err) {
+      console.error('Fallo al notificar al vendedor', {
+        leadId: lead.leadId,
+        vendedorId: vendedor.vendedorId,
+        error: err.message,
+      });
+    }
+  }
 }
