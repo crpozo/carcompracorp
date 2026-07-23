@@ -161,16 +161,26 @@ async function handleIncoming(event) {
 
 
 /**
- * Etiqueta del cliente para mensajes al VENDEDOR. Nunca incluye el numero
- * completo: un numero en WhatsApp es tocable y abre un chat PERSONAL con el
- * cliente (la causa de los chats duplicados). Sin nombre, se muestran solo
- * los ultimos 4 digitos.
+ * Formatea el telefono de forma NO tocable por WhatsApp: usa punto medio (·)
+ * como separador, que WhatsApp no reconoce como numero y por tanto no linkifica.
+ * Asi el vendedor VE y puede marcar el numero, pero un toque no abre un chat
+ * personal con el cliente (la causa de los chats duplicados). 593XXXXXXXXX -> 0XX·XXX·XXXX
+ */
+function telNoTappable(telefono) {
+  const t = String(telefono || '').replace(/\D/g, '');
+  const local = t.startsWith('593') ? '0' + t.slice(3) : t;
+  if (local.length < 4) return local || '????';
+  return `${local.slice(0, 3)}·${local.slice(3, 6)}·${local.slice(6)}`;
+}
+
+/**
+ * Etiqueta del cliente para los avisos al VENDEDOR: nombre + telefono en
+ * formato NO tocable, para identificar y poder llamar sin abrir chat personal.
  */
 function etiquetaCliente(nombre, telefono) {
   const n = String(nombre || '').trim();
-  if (n) return n;
-  const t = String(telefono || '');
-  return `Cliente ···${t.slice(-4) || '????'}`;
+  const tel = telNoTappable(telefono);
+  return n ? `${n} · 📞 ${tel}` : `Cliente · 📞 ${tel}`;
 }
 
 /**
@@ -499,9 +509,8 @@ async function procesarMensaje(value, msg, nowIso) {
         templateName: TEMPLATE_NAME,
         templateLang: TEMPLATE_LANG,
         vendedor,
-        // Telefono enmascarado: el numero completo invita a abrir un chat
-        // personal (la causa de los chats duplicados).
-        lead: { ...lead, telefono: `···${String(lead.telefono || '').slice(-4)}` },
+        // Telefono en formato no-tocable (no abre chat personal al tocarlo).
+        lead: { ...lead, telefono: telNoTappable(lead.telefono) },
       });
       // El wamid de la notificacion tambien enruta: contestar citandola vale.
       await registrarWamidReenvio(lead.leadId, notif?.messages?.[0]?.id);
