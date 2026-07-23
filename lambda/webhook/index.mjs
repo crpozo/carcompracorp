@@ -159,6 +159,20 @@ async function handleIncoming(event) {
   return { statusCode: 200, body: 'ok' };
 }
 
+
+/**
+ * Etiqueta del cliente para mensajes al VENDEDOR. Nunca incluye el numero
+ * completo: un numero en WhatsApp es tocable y abre un chat PERSONAL con el
+ * cliente (la causa de los chats duplicados). Sin nombre, se muestran solo
+ * los ultimos 4 digitos.
+ */
+function etiquetaCliente(nombre, telefono) {
+  const n = String(nombre || '').trim();
+  if (n) return n;
+  const t = String(telefono || '');
+  return `Cliente ···${t.slice(-4) || '????'}`;
+}
+
 /**
  * Reenvia el texto del cliente al CELULAR del vendedor asignado, para que la
  * conversacion se vea en ambos lados (CRM y telefono). Texto libre si su
@@ -176,7 +190,7 @@ async function reenviarAlVendedor(vendedor, cliente, texto, leadId) {
       phoneNumberId: PHONE_NUMBER_ID,
       apiVersion: GRAPH_API_VERSION,
     };
-    const quien = cliente.nombre || `+${cliente.telefono}`;
+    const quien = etiquetaCliente(cliente.nombre, cliente.telefono);
     // Plantilla PRIMERO: entrega garantizada con ventana abierta o cerrada
     // (el rechazo por ventana del texto libre llega asincrono y no se puede
     // atrapar aqui). Si la plantilla aun esta en revision, se intenta texto
@@ -186,7 +200,7 @@ async function reenviarAlVendedor(vendedor, cliente, texto, leadId) {
       envio = await enviarPlantillaNuevoMensaje({
         ...base,
         to: vendedor.telefono,
-        nombre: `${quien} (+${cliente.telefono})`,
+        nombre: quien,
         texto,
       });
       console.log('Mensaje del cliente reenviado por plantilla nuevo_mensaje', {
@@ -199,7 +213,7 @@ async function reenviarAlVendedor(vendedor, cliente, texto, leadId) {
       envio = await enviarTexto({
         ...base,
         to: vendedor.telefono,
-        texto: `💬 ${quien} (+${cliente.telefono}):\n\n${texto}`,
+        texto: `💬 ${quien}:\n\n${texto}`,
       });
       console.log('Mensaje del cliente reenviado al vendedor (texto libre)', {
         vendedorId: vendedor.vendedorId,
@@ -257,7 +271,7 @@ async function procesarMensajeDeVendedor(vendedor, msg, nowIso) {
     lead = await leadPorWamidReenvio(wamidCitado);
     if (lead && !esLeadActivo(lead)) {
       await avisar(
-        `⚠️ El caso de ${lead.nombre || `+${lead.telefono}`} ya esta ` +
+        `⚠️ El caso de ${etiquetaCliente(lead.nombre, lead.telefono)} ya esta ` +
           `${lead.estado}. No se envio tu mensaje.`
       );
       return;
@@ -294,7 +308,7 @@ async function procesarMensajeDeVendedor(vendedor, msg, nowIso) {
     Date.now() - new Date(ultimoCliente).getTime() > VENTANA_MS;
   if (ventanaCerrada) {
     await avisar(
-      `⚠️ La ventana de 24 h de WhatsApp con ${lead.nombre || `+${lead.telefono}`} ` +
+      `⚠️ La ventana de 24 h de WhatsApp con ${etiquetaCliente(lead.nombre, lead.telefono)} ` +
         'esta cerrada (no escribe hace mas de un dia). No se pudo enviar tu mensaje.'
     );
     return;
@@ -336,7 +350,7 @@ async function procesarMensajeDeVendedor(vendedor, msg, nowIso) {
       error: err.message,
     });
     await avisar(
-      `⚠️ WhatsApp rechazo el envio a ${lead.nombre || `+${lead.telefono}`}. ` +
+      `⚠️ WhatsApp rechazo el envio a ${etiquetaCliente(lead.nombre, lead.telefono)}. ` +
         'Intenta de nuevo o usa el panel.'
     );
     return;
@@ -485,7 +499,9 @@ async function procesarMensaje(value, msg, nowIso) {
         templateName: TEMPLATE_NAME,
         templateLang: TEMPLATE_LANG,
         vendedor,
-        lead,
+        // Telefono enmascarado: el numero completo invita a abrir un chat
+        // personal (la causa de los chats duplicados).
+        lead: { ...lead, telefono: `···${String(lead.telefono || '').slice(-4)}` },
       });
       // El wamid de la notificacion tambien enruta: contestar citandola vale.
       await registrarWamidReenvio(lead.leadId, notif?.messages?.[0]?.id);
