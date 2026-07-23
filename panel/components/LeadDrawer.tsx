@@ -110,10 +110,6 @@ export default function LeadDrawer({
   const digits = (lead.telefono || '').replace(/\D/g, '');
   const estado = lead.estado || 'nuevo';
   const primerNombre = (lead.nombre || '').trim().split(/\s+/)[0] || '';
-  const saludo = encodeURIComponent(
-    `Hola${primerNombre ? ` ${primerNombre}` : ''}, le saluda KING PEARL. ` +
-      'Recibimos su consulta y con gusto le ayudamos.'
-  );
 
   const enviar = async () => {
     const t = texto.trim();
@@ -165,20 +161,9 @@ export default function LeadDrawer({
           </div>
           <div className="chat-top-actions">
             {digits && (
-              <>
-                <a
-                  className="btn wa sm"
-                  href={`https://wa.me/${digits}?text=${saludo}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Abrir en tu WhatsApp personal (no se registra)"
-                >
-                  💬 WhatsApp
-                </a>
-                <a className="btn sm" href={`tel:+${digits}`} title="Llamar">
-                  📞
-                </a>
-              </>
+              <a className="btn sm" href={`tel:+${digits}`} title="Llamar al cliente">
+                📞 Llamar
+              </a>
             )}
             <button className="drawer-close" onClick={onClose} aria-label="Cerrar">
               ✕
@@ -251,8 +236,9 @@ export default function LeadDrawer({
           </div>
           <div className="chat-foot-row">
             <span className="composer-hint">
-              Sale del número del negocio (KING PEARL) y queda en el historial.
-              También puedes responder desde tu celular en el chat del negocio.
+              Todo sale del número del negocio (KING PEARL), así el cliente tiene
+              un solo chat. También puedes responder desde tu celular, en el chat
+              de KING PEARL donde te llegan sus mensajes.
             </span>
             <button
               type="button"
