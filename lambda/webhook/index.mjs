@@ -161,26 +161,23 @@ async function handleIncoming(event) {
 
 
 /**
- * Formatea el telefono de forma NO tocable por WhatsApp: usa punto medio (·)
- * como separador, que WhatsApp no reconoce como numero y por tanto no linkifica.
- * Asi el vendedor VE y puede marcar el numero, pero un toque no abre un chat
- * personal con el cliente (la causa de los chats duplicados). 593XXXXXXXXX -> 0XX·XXX·XXXX
+ * Telefono en formato internacional tocable (+digitos). WhatsApp lo muestra en
+ * AZUL y al tocarlo ofrece Llamar/Mensaje, para que el vendedor llame de un
+ * toque. (Regla operativa: para RESPONDER se hace en este mismo chat de KING
+ * PEARL — no abrir un chat personal, que crea conversaciones duplicadas.)
  */
-function telNoTappable(telefono) {
+function telTappable(telefono) {
   const t = String(telefono || '').replace(/\D/g, '');
-  const local = t.startsWith('593') ? '0' + t.slice(3) : t;
-  if (local.length < 4) return local || '????';
-  return `${local.slice(0, 3)}·${local.slice(3, 6)}·${local.slice(6)}`;
+  return t ? `+${t}` : '';
 }
 
 /**
- * Etiqueta del cliente para los avisos al VENDEDOR: nombre + telefono en
- * formato NO tocable, para identificar y poder llamar sin abrir chat personal.
+ * Etiqueta del cliente para los avisos al VENDEDOR: nombre + telefono tocable.
  */
 function etiquetaCliente(nombre, telefono) {
   const n = String(nombre || '').trim();
-  const tel = telNoTappable(telefono);
-  return n ? `${n} · 📞 ${tel}` : `Cliente · 📞 ${tel}`;
+  const tel = telTappable(telefono);
+  return n ? `${n} · ${tel}` : `Cliente · ${tel}`;
 }
 
 /**
@@ -509,8 +506,8 @@ async function procesarMensaje(value, msg, nowIso) {
         templateName: TEMPLATE_NAME,
         templateLang: TEMPLATE_LANG,
         vendedor,
-        // Telefono en formato no-tocable (no abre chat personal al tocarlo).
-        lead: { ...lead, telefono: telNoTappable(lead.telefono) },
+        // Telefono tocable (azul) para llamar de un toque.
+        lead: { ...lead, telefono: telTappable(lead.telefono) },
       });
       // El wamid de la notificacion tambien enruta: contestar citandola vale.
       await registrarWamidReenvio(lead.leadId, notif?.messages?.[0]?.id);
